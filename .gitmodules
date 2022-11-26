@@ -1,0 +1,18 @@
+[submodule "esp-homekit"]
+	path = esp-homekit
+	url = https://github.com/HomeACcessoryKid/esp-homekit
+[submodule "esp-wolfssl"]
+	path = esp-wolfssl
+	url = https://github.com/HomeACcessoryKid/esp-wolfssl
+[submodule "esp-cjson"]
+	path = esp-cjson
+	url = https://github.com/HomeACcessoryKid/esp-cjson
+[submodule "HLW8012_BL0937_ESP"]
+	path = HLW8012_BL0937_ESP
+	url = https://github.com/maccoylton/HLW8012_BL0937_ESP
+[submodule "UDPlogger"]
+	path = UDPlogger
+	url = https://github.com/HomeACcessoryKid/UDPlogger
+[submodule "esp-adv-button"]
+	path = esp-adv-button
+	url = https://github.com/HomeACcessoryKid/esp-adv-button
