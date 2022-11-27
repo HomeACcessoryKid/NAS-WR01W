@@ -304,7 +304,7 @@ void device_init() {
     gpio_enable(relay_gpio, GPIO_OUTPUT);
     relay_write(relay.value.bool_value, relay_gpio);
 
-    HLW8012_init(CF_GPIO, CF_GPIO, SELi_GPIO, 0, 1); //NAS-WR01W uses a BL0937
+    HLW8012_init(CF_GPIO, CF1_GPIO, SELi_GPIO, 0, 1); //NAS-WR01W uses a BL0937
     // currentWhen  - 1 for HLW8012 (old Sonoff Pow), 0 for BL0937
     // model - 0 for HLW8012, 1 or other value for BL0937
     
