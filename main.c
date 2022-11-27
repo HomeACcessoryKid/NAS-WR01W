@@ -105,7 +105,7 @@ float calibrated_current_multiplier=0;
 float calibrated_power_multiplier=0;
 
 void relay_callback(homekit_characteristic_t *_ch, homekit_value_t on, void *context) {
-    printf("Switch on callback\n");
+    printf("Relay callback\n");
     relay_write(relay.value.bool_value, relay_gpio);
     led_write(relay.value.bool_value, LED_GPIO);
 }

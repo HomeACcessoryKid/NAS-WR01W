@@ -37,7 +37,7 @@
 .permissions = homekit_permissions_paired_read \
 | homekit_permissions_notify, \
 .min_value = (float[]) {0}, \
-.max_value = (float[]) {4080}, \
+.max_value = (float[]) {4500}, \
 .min_step = (float[]) {1}, \
 .value = HOMEKIT_UINT16_(_value), \
 ##__VA_ARGS__
@@ -51,7 +51,7 @@
 .permissions = homekit_permissions_paired_read \
 | homekit_permissions_notify, \
 .min_value = (float[]) {0}, \
-.max_value = (float[]) {240}, \
+.max_value = (float[]) {250}, \
 .min_step = (float[]) {1}, \
 .value = HOMEKIT_UINT16_(_value), \
 ##__VA_ARGS__
@@ -65,7 +65,7 @@
 .permissions = homekit_permissions_paired_read \
 | homekit_permissions_notify, \
 .min_value = (float[]) {0}, \
-.max_value = (float[]) {17}, \
+.max_value = (float[]) {18}, \
 .min_step = (float[]) {0.01}, \
 .value = HOMEKIT_FLOAT_(_value), \
 ##__VA_ARGS__
@@ -74,7 +74,7 @@
 #define HOMEKIT_CHARACTERISTIC_CUSTOM_CALIBRATE_POW HOMEKIT_CUSTOM_UUID("F000000D")
 #define HOMEKIT_DECLARE_CHARACTERISTIC_CUSTOM_CALIBRATE_POW(_value, ...) \
 .type = HOMEKIT_CHARACTERISTIC_CUSTOM_CALIBRATE_POW, \
-.description = "Calibrate NOW", \
+.description = "}Calibrate(d)", \
 .format = homekit_format_bool, \
 .permissions = homekit_permissions_paired_read \
 | homekit_permissions_paired_write \
@@ -86,7 +86,7 @@
 #define HOMEKIT_CHARACTERISTIC_CUSTOM_CALIBRATE_VOLTS HOMEKIT_CUSTOM_UUID("F000000E")
 #define HOMEKIT_DECLARE_CHARACTERISTIC_CUSTOM_CALIBRATE_VOLTS(_value, ...) \
 .type = HOMEKIT_CHARACTERISTIC_CUSTOM_CALIBRATE_VOLTS, \
-.description = "Calibration Volts", \
+.description = "}Calibration Volts", \
 .format = homekit_format_uint16, \
 .permissions = homekit_permissions_paired_read \
 | homekit_permissions_paired_write \
@@ -101,7 +101,7 @@
 #define HOMEKIT_CHARACTERISTIC_CUSTOM_CALIBRATE_WATTS HOMEKIT_CUSTOM_UUID("F000000F")
 #define HOMEKIT_DECLARE_CHARACTERISTIC_CUSTOM_CALIBRATE_WATTS(_value, ...) \
 .type = HOMEKIT_CHARACTERISTIC_CUSTOM_CALIBRATE_WATTS, \
-.description = "Calibration WATTS", \
+.description = "}Calibration WATTS", \
 .format = homekit_format_uint16, \
 .permissions = homekit_permissions_paired_read \
 | homekit_permissions_paired_write \
