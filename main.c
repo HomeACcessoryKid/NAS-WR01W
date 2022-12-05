@@ -38,6 +38,7 @@
 #include <udplogger.h>
 #include <HLW8012_ESP82.h>
 #include <etstimer.h>
+#include <BL0937.h>
 
 /* ============== BEGIN HOMEKIT CHARACTERISTIC DECLARATIONS =============================================================== */
 // add this section to make your device OTA capable
@@ -211,6 +212,7 @@ void homekit_characteristic_bounds_check(homekit_characteristic_t *ch) {
 
 void power_monitoring_task(void *_args) {
     printf ("%s:\n", __func__);
+    vTaskDelete(NULL);
 
     while (1) {
         volts.value.int_value = HLW8012_getVoltage();
@@ -236,6 +238,66 @@ void power_monitoring_task(void *_args) {
     }
 }
 
+//  SemaphoreHandle_t   *semaphore; //must set
+//  uint32_t            mintime;    //must set in microseconds
+//  uint32_t            count;      //autoinit
+//  uint32_t            now;        //autoinit
+//  uint32_t            time[BL0937_N]; //autoinit
+
+void CF0_task(void *arg) {
+    printf ("%s:\n", __func__);
+    SemaphoreHandle_t mySemaphore=xSemaphoreCreateBinary();
+    BL0937_data_t dataW;
+    dataW.semaphore=&mySemaphore;
+    dataW.mintime=1000000; //1 second
+    BL0937_collect(SOURCE_CF,&dataW);
+    
+    printf("Initial:      c=%d, n=%d, t0=%d, t1=%d, t2=%d, t3=%d\n",dataW.count,dataW.now,dataW.time[0],dataW.time[1],dataW.time[2],dataW.time[3]);
+    while (1) {
+        if (xSemaphoreTake(mySemaphore, 10000/portTICK_PERIOD_MS) == pdTRUE) {    
+            printf("CF   taken:   ");
+        } else {
+            printf("CF   timeout: ");
+        }
+        printf("c=%d, n=%d, t0=%d, t1=%d, t2=%d, t3=%d\n",dataW.count,dataW.now,dataW.time[0],dataW.time[1],dataW.time[2],dataW.time[3]);
+// do soemthing to shift the time values if speed is slow
+    }
+    vTaskDelete(NULL);
+}
+
+void CF1_task(void *arg) {
+    printf ("%s:\n", __func__);
+    int timedout;
+    SemaphoreHandle_t mySemaphore=xSemaphoreCreateBinary();
+    BL0937_data_t dataV;
+    BL0937_data_t dataA;
+    dataV.semaphore=&mySemaphore;
+    dataA.semaphore=&mySemaphore;
+    dataV.mintime=  50000; //50 msecond
+    dataA.mintime=1000000; // 1 second
+    while (1) {
+        BL0937_collect(SOURCE_CF1V,&dataV);
+        if (xSemaphoreTake(mySemaphore,   100/portTICK_PERIOD_MS) == pdTRUE) {    
+            printf("CF1V taken:   ");
+        } else {
+            printf("CF1V timeout: ");
+        }
+        printf("c=%d, n=%d, t0=%d, t1=%d, t2=%d, t3=%d\n",dataV.count,dataV.now,dataV.time[0],dataV.time[1],dataV.time[2],dataV.time[3]);
+        
+        BL0937_collect(SOURCE_CF1A,&dataA);
+        timedout=0;
+        while (timedout<10 && dataA.count<BL0937_N) {
+            if (xSemaphoreTake(mySemaphore, 10000/portTICK_PERIOD_MS) == pdTRUE) {    
+                printf("CF1A taken:   ");
+            } else {
+                timedout++;
+                printf("CF1A timeout: ");
+            }
+            printf("c=%d, n=%d, t0=%d, t1=%d, t2=%d, t3=%d\n",dataA.count,dataA.now,dataA.time[0],dataA.time[1],dataA.time[2],dataA.time[3]);
+        }
+    }
+    vTaskDelete(NULL);
+}
 
 // void identify_task(void *_args) {
 //     vTaskDelete(NULL);
@@ -304,7 +366,7 @@ void device_init() {
     gpio_enable(relay_gpio, GPIO_OUTPUT);
     relay_write(relay.value.bool_value, relay_gpio);
 
-    HLW8012_init(CF_GPIO, CF1_GPIO, SELi_GPIO, 0, 1); //NAS-WR01W uses a BL0937
+//     HLW8012_init(CF_GPIO, CF1_GPIO, SELi_GPIO, 0, 1); //NAS-WR01W uses a BL0937
     // currentWhen  - 1 for HLW8012 (old Sonoff Pow), 0 for BL0937
     // model - 0 for HLW8012, 1 or other value for BL0937
     
@@ -314,15 +376,17 @@ void device_init() {
     
     if (calibrated_power_multiplier !=0 && calibrated_current_multiplier !=0 && calibrated_volts_multiplier !=0) {
         printf ("%s:Setting calibrated multipliers, current: %f, voltage: %f, watts: %f\n", __func__, calibrated_current_multiplier, calibrated_volts_multiplier, calibrated_power_multiplier);
-        HLW8012_setCurrentMultiplier(calibrated_current_multiplier);
-        HLW8012_setVoltageMultiplier(calibrated_volts_multiplier);
-        HLW8012_setPowerMultiplier(calibrated_power_multiplier);
+//         HLW8012_setCurrentMultiplier(calibrated_current_multiplier);
+//         HLW8012_setVoltageMultiplier(calibrated_volts_multiplier);
+//         HLW8012_setPowerMultiplier(calibrated_power_multiplier);
     } else {
         printf ("%s:calibrated mutipliers not available, current: %f, voltage: %f, watts: %f\n", __func__, calibrated_current_multiplier, calibrated_volts_multiplier, calibrated_power_multiplier);
     }
     
     xTaskCreate(power_monitoring_task, "Power Monitoring Task", 512, NULL, tskIDLE_PRIORITY+1, NULL);
-
+    BL0937_init(CF_GPIO, CF1_GPIO, SELi_GPIO, MODEL_BL0937);
+    xTaskCreate(CF0_task, "CF0_Task", 512, NULL, tskIDLE_PRIORITY+1, NULL);
+    xTaskCreate(CF1_task, "CF1_task", 512, NULL, tskIDLE_PRIORITY+1, NULL);
     sdk_os_timer_setfn(&save_timer, save_characteristics, NULL);
 
     // homekit_characteristic_notify(&relay, relay.value);
