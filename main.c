@@ -267,7 +267,7 @@ void CF0_task(void *arg) {
         } else {
             //keep collecting
         }
-        printf("avg=%u microseconds\n",(dataW.now-dataW.time[0])/dataW.count);
+        if (dataW.count) printf("avg=%u microseconds\n",(dataW.now-dataW.time[0])/dataW.count);
     }
     vTaskDelete(NULL);
 }
@@ -290,7 +290,7 @@ void CF1_task(void *arg) {
             printf("CF1V timeout: ");
         }
         printf("c=%d, n=%d, t0=%d, t1=%d, t2=%d, t3=%d  ",dataV.count,dataV.now,dataV.time[0],dataV.time[1],dataV.time[2],dataV.time[3]);
-        printf("avg=%u microseconds\n",(dataV.now-dataV.time[0])/dataV.count);
+        if (dataV.count) printf("avg=%u microseconds\n",(dataV.now-dataV.time[0])/dataV.count);
         
         BL0937_collect(SOURCE_CF1A,&dataA);
         timedout=0;
@@ -301,8 +301,8 @@ void CF1_task(void *arg) {
                 timedout++;
                 printf("CF1A timeout: ");
             }
-            printf("c=%d, n=%d, t0=%d, t1=%d, t2=%d, t3=%d\n",dataA.count,dataA.now,dataA.time[0],dataA.time[1],dataA.time[2],dataA.time[3]);
-            printf("avg=%u microseconds\n",(dataA.now-dataA.time[0])/dataA.count);
+            printf("c=%d, n=%d, t0=%d, t1=%d, t2=%d, t3=%d  ",dataA.count,dataA.now,dataA.time[0],dataA.time[1],dataA.time[2],dataA.time[3]);
+            if (dataA.count) printf("avg=%u microseconds\n",(dataA.now-dataA.time[0])/dataA.count);
         }
     }
     vTaskDelete(NULL);
