@@ -7,35 +7,35 @@
 static uint8_t _cf0_pin;
 static uint8_t _cf1_pin;
 static uint8_t _sel_pin;
-static uint8_t _model;
+static BL0937_model_t _model;
 
 static BL0937_data_t *_cf0=NULL;
 static BL0937_data_t *_cf1=NULL;
-// SemaphoreHandle_t   *semaphore; //must set
+// SemaphoreHandle_t   semaphore;  //must set
 // uint32_t            mintime;    //must set in microseconds
 // uint32_t            count;      //autoinit
 // uint32_t            now;        //autoinit
 // uint32_t            time[BL0937_N]; //autoinit
 
 static void  IRAM _cf0_interrupt_handler(uint8_t gpio_num) {
-//     BaseType_t yield = pdFALSE;
+    BaseType_t yield = pdFALSE;
     BL0937_data_t *cf=_cf0;
     if (cf) {
         cf->now=sdk_system_get_time();
         if (cf->count  < BL0937_N) cf->time[cf->count]=cf->now;
-        if (cf->count++> BL0937_N-2 && (cf->now-cf->time[0])>cf->mintime) xSemaphoreGiveFromISR(cf->semaphore,NULL);
-//         portYIELD_FROM_ISR(yield);
+        if (cf->count++> BL0937_N-2 && (cf->now-cf->time[0])>cf->mintime) xSemaphoreGiveFromISR(cf->semaphore,&yield);
+        if (yield) taskYIELD();
     }
 }
 
 static void  IRAM _cf1_interrupt_handler(uint8_t gpio_num) {
-//     BaseType_t yield = pdFALSE;
+    BaseType_t yield = pdFALSE;
     BL0937_data_t *cf=_cf1;
     if (cf) {
         cf->now=sdk_system_get_time();
         if (cf->count  < BL0937_N) cf->time[cf->count]=cf->now;
-        if (cf->count++> BL0937_N-2 && (cf->now-cf->time[0])>cf->mintime) xSemaphoreGiveFromISR(cf->semaphore,NULL);
-//         portYIELD_FROM_ISR(yield);
+        if (cf->count++> BL0937_N-2 && (cf->now-cf->time[0])>cf->mintime) xSemaphoreGiveFromISR(cf->semaphore,&yield);
+        if (yield) taskYIELD();
     }
 }
 

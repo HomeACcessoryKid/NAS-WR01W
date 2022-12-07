@@ -238,7 +238,7 @@ void power_monitoring_task(void *_args) {
     }
 }
 
-//  SemaphoreHandle_t   *semaphore; //must set
+//  SemaphoreHandle_t   semaphore;  //must set
 //  uint32_t            mintime;    //must set in microseconds
 //  uint32_t            count;      //autoinit
 //  uint32_t            now;        //autoinit
@@ -248,7 +248,7 @@ void CF0_task(void *arg) {
     printf ("%s:\n", __func__);
     SemaphoreHandle_t mySemaphore=xSemaphoreCreateBinary();
     BL0937_data_t dataW;
-    dataW.semaphore=&mySemaphore;
+    dataW.semaphore=mySemaphore;
     dataW.mintime=1000000; //1 second
     BL0937_collect(SOURCE_CF,&dataW);
     
@@ -271,8 +271,8 @@ void CF1_task(void *arg) {
     SemaphoreHandle_t mySemaphore=xSemaphoreCreateBinary();
     BL0937_data_t dataV;
     BL0937_data_t dataA;
-    dataV.semaphore=&mySemaphore;
-    dataA.semaphore=&mySemaphore;
+    dataV.semaphore=mySemaphore;
+    dataA.semaphore=mySemaphore;
     dataV.mintime=  50000; //50 msecond
     dataA.mintime=1000000; // 1 second
     while (1) {

@@ -22,7 +22,7 @@ typedef enum {
 } BL0937_source_t;
 
 typedef struct {
-    SemaphoreHandle_t   *semaphore; //must set
+    SemaphoreHandle_t   semaphore;  //must set
     uint32_t            mintime;    //must set in microseconds
     uint32_t            count;      //autoinit
     uint32_t            now;        //autoinit
