@@ -240,6 +240,7 @@ void power_monitoring_task(void *_args) {
 
 //  SemaphoreHandle_t   semaphore;  //must set
 //  uint32_t            mintime;    //must set in microseconds
+//  uint32_t            total;      //does not clear
 //  uint32_t            count;      //autoinit
 //  uint32_t            now;        //autoinit
 //  uint32_t            time[BL0937_N]; //autoinit
@@ -250,16 +251,18 @@ void CF0_task(void *arg) {
     BL0937_data_t dataW;
     dataW.semaphore=mySemaphore;
     dataW.mintime=1000000; //1 second
+    dataW.total=0;
     BL0937_collect(SOURCE_CF,&dataW);
     
-    printf("Initial:      c=%d, n=%d, t0=%d, t1=%d, t2=%d, t3=%d\n",dataW.count,dataW.now,dataW.time[0],dataW.time[1],dataW.time[2],dataW.time[3]);
     while (1) {
         if (xSemaphoreTake(mySemaphore, 10000/portTICK_PERIOD_MS) == pdTRUE) {    
             printf("CF   taken:   ");
         } else {
             printf("CF   timeout: ");
         }
-        printf("c=%d, n=%u, t0=%u, t1=%u, t2=%u, t3=%u",dataW.count,dataW.now,dataW.time[0],dataW.time[1],dataW.time[2],dataW.time[3]);
+        printf("c=%d, n=%u, t0=%u, t1=%u, t2=%u, t3=%u, t=%u",dataW.count,dataW.now,dataW.time[0],dataW.time[1],dataW.time[2],dataW.time[3],dataW.total);
+        if (dataW.count) printf(", avg=%u microseconds",(dataW.now-dataW.time[0])/dataW.count);
+        printf("\n");
         if (dataW.count>3*BL0937_N/2) {
             BL0937_collect(SOURCE_CF,&dataW);
         } else if (dataW.count>=BL0937_N) {
@@ -267,8 +270,6 @@ void CF0_task(void *arg) {
         } else {
             //keep collecting
         }
-        if (dataW.count) printf(", avg=%u microseconds",(dataW.now-dataW.time[0])/dataW.count);
-        printf("\n");
     }
     vTaskDelete(NULL);
 }

@@ -13,6 +13,7 @@ static BL0937_data_t *_cf0=NULL;
 static BL0937_data_t *_cf1=NULL;
 // SemaphoreHandle_t   semaphore;  //must set
 // uint32_t            mintime;    //must set in microseconds
+// uint32_t            total;      //does not clear
 // uint32_t            count;      //autoinit
 // uint32_t            now;        //autoinit
 // uint32_t            time[BL0937_N]; //autoinit
@@ -21,6 +22,7 @@ static void  IRAM _cf0_interrupt_handler(uint8_t gpio_num) {
     BaseType_t yield = pdFALSE;
     BL0937_data_t *cf=_cf0;
     if (cf) {
+        cf->total++;
         cf->now=sdk_system_get_time();
         if (cf->count  < BL0937_N) cf->time[cf->count]=cf->now;
         if (cf->count++> BL0937_N-2 && (cf->now-cf->time[0])>cf->mintime) xSemaphoreGiveFromISR(cf->semaphore,&yield);

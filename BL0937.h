@@ -24,6 +24,7 @@ typedef enum {
 typedef struct {
     SemaphoreHandle_t   semaphore;  //must set
     uint32_t            mintime;    //must set in microseconds
+    uint32_t            total;      //does not clear
     uint32_t            count;      //autoinit
     uint32_t            now;        //autoinit
     uint32_t            time[BL0937_N]; //autoinit
