@@ -263,10 +263,8 @@ void CF0_task(void *arg) {
         printf("c=%d, n=%u, t0=%u, t1=%u, t2=%u, t3=%u, t=%u",dataW.count,dataW.now,dataW.time[0],dataW.time[1],dataW.time[2],dataW.time[3],dataW.total);
         if (dataW.count) printf(", avg=%u microseconds",(dataW.now-dataW.time[0])/dataW.count);
         printf("\n");
-        if (dataW.count>3*BL0937_N/2) {
+        if (dataW.count>=BL0937_N) {
             BL0937_collect(SOURCE_CF,&dataW);
-        } else if (dataW.count>=BL0937_N) {
-            // do something to shift the time values if speed is slow
         } else {
             //keep collecting
         }

@@ -74,6 +74,7 @@ void BL0937_collect(BL0937_source_t source, BL0937_data_t *data) {
             for (int i=0; i<BL0937_N; i++) data->time[i]=0;
             gpio_write(_sel_pin, (source==SOURCE_CF1A)?0:1); //TODO: make model dependant
             sdk_os_delay_us(12);//wait >10 microseconds
+            xSemaphoreTake(data->semaphore,0); //eat the semaphore in case it triggered already
             _cf1=data; //ready to go
         }
     } else printf("ERROR: Must set semaphore!\n");
