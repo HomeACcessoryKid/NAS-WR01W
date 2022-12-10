@@ -250,23 +250,38 @@ void CF0_task(void *arg) {
     SemaphoreHandle_t mySemaphore=xSemaphoreCreateBinary();
     BL0937_data_t dataW;
     dataW.semaphore=mySemaphore;
-    dataW.mintime=1000000; //1 second
+    dataW.mintime=1000*1000; //1 second
     dataW.total=0;
+    int timeoutcount=0,i,j,shift;
+    BaseType_t taken;
     BL0937_collect(SOURCE_CF,&dataW);
     
     while (1) {
-        if (xSemaphoreTake(mySemaphore, 10000/portTICK_PERIOD_MS) == pdTRUE) {    
-            printf("CF   taken:   ");
-        } else {
-            printf("CF   timeout: ");
-        }
+        taken=xSemaphoreTake(mySemaphore, 10000/portTICK_PERIOD_MS);
+        // process current results
+        if (taken) printf("CF   taken:   "); else printf("CF   timeout: ");
         printf("c=%d, n=%u, t0=%u, t1=%u, t2=%u, t3=%u, t=%u",dataW.count,dataW.now,dataW.time[0],dataW.time[1],dataW.time[2],dataW.time[3],dataW.total);
         if (dataW.count) printf(", avg=%u microseconds",(dataW.now-dataW.time[0])/dataW.count);
         printf("\n");
-        if (dataW.count>=BL0937_N) {
-            BL0937_collect(SOURCE_CF,&dataW);
-        } else {
-            //keep collecting
+        // prepare future results
+        if (taken) { //implies that BL0937_N values are loaded
+            if (timeoutcount>0) { //shift registered values
+                shift=(int)(BL0937_N/(timeoutcount+1)+0.4); //almost round to nearest integer
+                printf("toc=%d, shift=%d\n",timeoutcount,shift);
+                for (i=0;i<shift;i++) { //TODO: less lazy solution
+                    for (j=0;j<BL0937_N-1;j++) {
+                        dataW.time[j]=dataW.time[j+1];
+                    }
+                }
+                dataW.count-=shift;
+            } else BL0937_collect(SOURCE_CF,&dataW); //toc==0, speedy enough, start over
+            timeoutcount=0; //TODO: maybe only decrease a bit?
+        } else { //timed out
+            timeoutcount++;
+            if (timeoutcount>12) { //after 2 min declare it NO LOAD and reset history
+                timeoutcount=0;
+                BL0937_collect(SOURCE_CF,&dataW);
+            }
         }
     }
     vTaskDelete(NULL);
