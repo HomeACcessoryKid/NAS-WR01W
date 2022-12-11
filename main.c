@@ -322,7 +322,7 @@ void CF1_task(void *arg) {
             homekit_characteristic_notify(&mamps,mamps.value);
             if (taken) printf("CF1A taken:   "); else printf("CF1A timeout: ");
             printf("c=%d, n=%u, t0=%u, t1=%u, t2=%u, t3=%u",dataA.count,dataA.now,dataA.time[0],dataA.time[1],dataA.time[2],dataA.time[3]);
-            printf(", avg=%u us, A=%u\n",(dataA.count>1)?(dataA.now-dataA.time[0])/(dataA.count-1):0,watts.value.int_value);
+            printf(", avg=%u us, A=%u\n",(dataA.count>1)?(dataA.now-dataA.time[0])/(dataA.count-1):0,mamps.value.int_value);
             // prepare future results
             if (taken) { //implies that BL0937_N values are loaded
                 if (timeoutcount>0) { //shift registered values

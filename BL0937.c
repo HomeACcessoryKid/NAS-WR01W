@@ -66,6 +66,7 @@ void BL0937_collect(BL0937_source_t source, BL0937_data_t *data) {
             data->count=0;
             data->now=0;
             for (int i=0; i<BL0937_N; i++) data->time[i]=0;
+            xSemaphoreTake(data->semaphore,0); //eat the semaphore in case it triggered already
             _cf0=data; //ready to go
         } else { //SOURCE_CF1x
             _cf1=NULL; //to prevent interrupt from touching this fresh dataset
