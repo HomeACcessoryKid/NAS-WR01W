@@ -229,7 +229,7 @@ void CF0_task(void *arg) {
         while(!cf0_done) {
             taken=xSemaphoreTake(mySemaphore, 10000/portTICK_PERIOD_MS);
             // process current results
-            watts.value.float_value=(dataW.count>1)?((int)10*(1628400*(dataW.count-1)/(dataW.now-dataW.time[0])))/10.0:0;
+            watts.value.float_value=(dataW.count>1)?((int)(10*1628400/(dataW.now-dataW.time[0]))*(dataW.count-1))/10.0:0;
             homekit_characteristic_bounds_check(&watts);
             homekit_characteristic_notify(&watts,watts.value);
             if (taken) printf("CF   taken:   "); else printf("CF   timeout: ");
