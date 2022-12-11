@@ -153,14 +153,14 @@ void load_float_param( const char *description, float *new_float_value) {
 float calibrated_volts_multiplier=142000;
 float calibrated_current_multiplier=12772500;
 float calibrated_power_multiplier=1628400;
-bool  cf0_done, cf1_done;
+bool  cf0_done,cf1_done;
 
 
 void relay_callback(homekit_characteristic_t *_ch, homekit_value_t on, void *context) {
     printf("Relay callback\n");
     relay_write(relay.value.bool_value, relay_gpio);
     led_write(relay.value.bool_value, LED_GPIO);
-    cf0_done=cf1_done=true; //when switching, always start new measurments ASAP
+    cf0_done=cf1_done=true; //when switching, always start new measurements ASAP
 }
 void volts_callback(homekit_characteristic_t *_ch, homekit_value_t value, void *context) {
 //     printf("Volts on callback\n");
@@ -236,8 +236,8 @@ void CF0_task(void *arg) {
             printf("c=%d, n=%u, t0=%u, t1=%u, t2=%u, t3=%u, t=%u",dataW.count,dataW.now,dataW.time[0],dataW.time[1],dataW.time[2],dataW.time[3],dataW.total);
             printf(", avg=%u us, %uW\n",(dataW.count>1)?(dataW.now-dataW.time[0])/(dataW.count-1):0,watts.value.int_value);
             // prepare future results
-            cf0_done=BL0937_process(&dataW,&timeoutcount,taken);
-            if (20*watts.value.int_value<old_value) cf0_done=cf1_done=true; //when connected device switches off, detect ASAP
+            cf0_done=(cf0_done || 20*watts.value.int_value<old_value || BL0937_process(&dataW,&timeoutcount,taken));
+            if (20*watts.value.int_value<old_value) cf1_done=true; //when connected device switches off, detect ASAP
             old_value=watts.value.int_value; //bound to fail, because the actual value will not yet update, catch 22
         }
     }
@@ -281,8 +281,8 @@ void CF1_task(void *arg) {
             printf("c=%d, n=%u, t0=%u, t1=%u, t2=%u, t3=%u",dataA.count,dataA.now,dataA.time[0],dataA.time[1],dataA.time[2],dataA.time[3]);
             printf(", avg=%u us, %umA\n",(dataA.count>1)?(dataA.now-dataA.time[0])/(dataA.count-1):0,mamps.value.int_value);
             // prepare future results
-            cf1_done=BL0937_process(&dataA,&timeoutcount,taken);
-            if (20*mamps.value.int_value<old_value) cf0_done=cf1_done=true; //when connected device switches off, detect ASAP
+            cf1_done=(cf1_done || 20*watts.value.int_value<old_value || BL0937_process(&dataA,&timeoutcount,taken));
+            if (20*mamps.value.int_value<old_value) cf0_done=true; //when connected device switches off, detect ASAP
             old_value=mamps.value.int_value; //bound to fail, because the actual value will not yet update, catch 22
         }
     }
