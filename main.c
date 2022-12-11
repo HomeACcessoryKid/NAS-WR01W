@@ -13,11 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Homekit firmware SWA9 SmartSocket
+ * Homekit firmware NAS-WR01W SmartSocket
  */
 
 #define SAVE_DELAY 500
-#define POWER_MONITOR_POLL_PERIOD 10000
 
 
 #include <stdio.h>
@@ -80,80 +79,6 @@ const int LED_GPIO    = 13;
 const int relay_gpio  = 14;
 
 ETSTimer save_timer;
-void relay_write(bool on, int gpio) {
-    gpio_write(gpio, on ? 1 : 0);
-}
-void led_write(bool on, int gpio) {
-    gpio_write(gpio, on ? 0 : 1);
-}
-void save_float_param( const char *description, float new_float_value) {    
-    sysparam_set_int32(description, (int32_t)(new_float_value*100));
-}
-void load_float_param( const char *description, float *new_float_value) {
-    static sysparam_status_t status = SYSPARAM_OK;
-    static int32_t int32_value;
-    status = sysparam_get_int32(description, &int32_value);
-    if (status == SYSPARAM_OK ) *new_float_value = int32_value * 1.0f / 100;
-}
-
-
-
-
-
-
-float calibrated_volts_multiplier=142000;
-float calibrated_current_multiplier=12772500;
-float calibrated_power_multiplier=1628400;
-
-void relay_callback(homekit_characteristic_t *_ch, homekit_value_t on, void *context) {
-    printf("Relay callback\n");
-    relay_write(relay.value.bool_value, relay_gpio);
-    led_write(relay.value.bool_value, LED_GPIO);
-}
-void volts_callback(homekit_characteristic_t *_ch, homekit_value_t value, void *context) {
-//     printf("Volts on callback\n");
-/*    volts.value.int_value = HLW8012_getVoltage();*/
-}
-void mamps_callback(homekit_characteristic_t *_ch, homekit_value_t value, void *context) {
-//     printf("mAmps on callback\n");
-/*    mamps.value.int_value = HLW8012_getCurrent();*/
-}
-void watts_callback(homekit_characteristic_t *_ch, homekit_value_t value, void *context) {
-//     printf("Watts on callback\n");
-/*    watts.value.int_value = HLW8012_getActivePower();*/
-/*    watts.value.int_value = (int) (volts.value.int_value * mamps.value.int_value);*/
-}
-
-void save_characteristics() {
-    //called by a timer function to save charactersitics
-    save_float_param ( "wattsx", calibrated_power_multiplier);
-    save_float_param ( "voltsx", calibrated_volts_multiplier);
-    save_float_param ( "currentx", calibrated_current_multiplier);
-}
-
-void calibrate_task() {
-    HLW8012_set_calibrated_mutipliers (&calibrated_current_multiplier, &calibrated_volts_multiplier, &calibrated_power_multiplier, calibrate_volts.value.int_value, calibrate_power.value.int_value) ;
-    
-    sdk_os_timer_arm (&save_timer, SAVE_DELAY, 0 );
-    
-    calibrate_pow.value.bool_value = false;
-    homekit_characteristic_notify(&calibrate_pow, calibrate_pow.value);
-
-    vTaskDelete (NULL);
-}
-void calibrate_pow_set(homekit_value_t value) {
-    xTaskCreate(calibrate_task, "Calibrate task", 512, NULL, tskIDLE_PRIORITY+1, NULL);
-}
-
-void calibrate_volts_set(homekit_value_t value) {
-    calibrate_volts.value.int_value = value.int_value;
-}
-
-void calibrate_power_set(homekit_value_t value) {
-    calibrate_power.value.int_value = value.int_value;
-}
-
-
 void homekit_characteristic_bounds_check(homekit_characteristic_t *ch) {
     printf ("%s: %s: ",__func__, ch->description);
     switch (ch->format) {
@@ -208,34 +133,73 @@ void homekit_characteristic_bounds_check(homekit_characteristic_t *ch) {
     }
     printf("\n");
 }
+void relay_write(bool on, int gpio) {
+    gpio_write(gpio, on ? 1 : 0);
+}
+void led_write(bool on, int gpio) {
+    gpio_write(gpio, on ? 0 : 1);
+}
+void save_float_param( const char *description, float new_float_value) {    
+    sysparam_set_int32(description, (int32_t)(new_float_value*100));
+}
+void load_float_param( const char *description, float *new_float_value) {
+    static sysparam_status_t status = SYSPARAM_OK;
+    static int32_t int32_value;
+    status = sysparam_get_int32(description, &int32_value);
+    if (status == SYSPARAM_OK ) *new_float_value = int32_value * 1.0f / 100;
+}
 
 
-void power_monitoring_task(void *_args) {
-    printf ("%s:\n", __func__);
-    vTaskDelete(NULL);
+float calibrated_volts_multiplier=142000;
+float calibrated_current_multiplier=12772500;
+float calibrated_power_multiplier=1628400;
 
-    while (1) {
-        volts.value.int_value = HLW8012_getVoltage();
-        mamps.value.int_value = HLW8012_getCurrent();
-        /*watts.value.int_value = HLW8012_getActivePower();*/
-        watts.value.int_value = (int) (volts.value.int_value * mamps.value.int_value);
-        
-        printf("%s: [HLW] Active Power (W)    :%d\n", __func__, HLW8012_getActivePower());
-        printf("%s: [HLW] Voltage (V)         :%d\n", __func__, HLW8012_getVoltage());
-        printf("%s: [HLW] Current (A)         :%f\n", __func__, HLW8012_getCurrent());
-        printf("%s: [HLW] Apparent Power (VA) :%d\n", __func__, HLW8012_getApparentPower());
-        printf("%s: [HLW] Power Factor (%%)    :%d\n", __func__, (int) (100 * HLW8012_getPowerFactor()));
-        printf("%s: [HLW] Agg. energy (Ws)    :%d\n", __func__, HLW8012_getEnergy());
-        
-        homekit_characteristic_bounds_check( &volts);
-        homekit_characteristic_bounds_check( &mamps);
-        homekit_characteristic_bounds_check( &watts);
-        
-        homekit_characteristic_notify(&volts, volts.value);
-        homekit_characteristic_notify(&mamps, mamps.value);
-        homekit_characteristic_notify(&watts, watts.value);
-        vTaskDelay(POWER_MONITOR_POLL_PERIOD / portTICK_PERIOD_MS);
-    }
+void relay_callback(homekit_characteristic_t *_ch, homekit_value_t on, void *context) {
+    printf("Relay callback\n");
+    relay_write(relay.value.bool_value, relay_gpio);
+    led_write(relay.value.bool_value, LED_GPIO);
+}
+void volts_callback(homekit_characteristic_t *_ch, homekit_value_t value, void *context) {
+//     printf("Volts on callback\n");
+/*    volts.value.int_value = HLW8012_getVoltage();*/
+}
+void mamps_callback(homekit_characteristic_t *_ch, homekit_value_t value, void *context) {
+//     printf("mAmps on callback\n");
+/*    mamps.value.int_value = HLW8012_getCurrent();*/
+}
+void watts_callback(homekit_characteristic_t *_ch, homekit_value_t value, void *context) {
+//     printf("Watts on callback\n");
+/*    watts.value.int_value = HLW8012_getActivePower();*/
+/*    watts.value.int_value = (int) (volts.value.int_value * mamps.value.int_value);*/
+}
+
+void save_characteristics() {
+    //called by a timer function to save charactersitics
+    save_float_param ( "wattsx", calibrated_power_multiplier);
+    save_float_param ( "voltsx", calibrated_volts_multiplier);
+    save_float_param ( "currentx", calibrated_current_multiplier);
+}
+
+void calibrate_task() {
+    HLW8012_set_calibrated_mutipliers (&calibrated_current_multiplier, &calibrated_volts_multiplier, &calibrated_power_multiplier, calibrate_volts.value.int_value, calibrate_power.value.int_value) ;
+    
+    sdk_os_timer_arm (&save_timer, SAVE_DELAY, 0 );
+    
+    calibrate_pow.value.bool_value = false;
+    homekit_characteristic_notify(&calibrate_pow, calibrate_pow.value);
+
+    vTaskDelete (NULL);
+}
+void calibrate_pow_set(homekit_value_t value) {
+    xTaskCreate(calibrate_task, "Calibrate task", 512, NULL, tskIDLE_PRIORITY+1, NULL);
+}
+
+void calibrate_volts_set(homekit_value_t value) {
+    calibrate_volts.value.int_value = value.int_value;
+}
+
+void calibrate_power_set(homekit_value_t value) {
+    calibrate_power.value.int_value = value.int_value;
 }
 
 //  SemaphoreHandle_t   semaphore;  //must set
@@ -252,9 +216,9 @@ void CF0_task(void *arg) {
     dataW.semaphore=mySemaphore;
     dataW.mintime=1000*1000; //1 second
     dataW.total=0;
-    int timeoutcount=0;
     bool done;
     BaseType_t taken;
+    int timeoutcount=0;
     
     while (1) {
         BL0937_collect(SOURCE_CF,&dataW);
@@ -267,8 +231,7 @@ void CF0_task(void *arg) {
             homekit_characteristic_notify(&watts,watts.value);
             if (taken) printf("CF   taken:   "); else printf("CF   timeout: ");
             printf("c=%d, n=%u, t0=%u, t1=%u, t2=%u, t3=%u, t=%u",dataW.count,dataW.now,dataW.time[0],dataW.time[1],dataW.time[2],dataW.time[3],dataW.total);
-            printf(", avg=%u us, W=%u\n",(dataW.count>1)?(dataW.now-dataW.time[0])/(dataW.count-1):0,watts.value.int_value);
-
+            printf(", avg=%u us, %uW\n",(dataW.count>1)?(dataW.now-dataW.time[0])/(dataW.count-1):0,watts.value.int_value);
             // prepare future results
             done=BL0937_process(&dataW,&timeoutcount,taken);
         }
@@ -283,11 +246,11 @@ void CF1_task(void *arg) {
     BL0937_data_t dataA;
     dataV.semaphore=mySemaphore;
     dataA.semaphore=mySemaphore;
-    dataV.mintime=  50000; //50 msecond
-    dataA.mintime=1000000; // 1 second
-    int timeoutcount=0;
+    dataV.mintime=  50*1000; //50 msecond
+    dataA.mintime=1000*1000; // 1  second
     bool done;
     BaseType_t taken;
+    int timeoutcount=0;
     
     while (1) {
         BL0937_collect(SOURCE_CF1V,&dataV);
@@ -298,7 +261,7 @@ void CF1_task(void *arg) {
         homekit_characteristic_notify(&volts,volts.value);
         if (taken) printf("CF1V taken:   "); else printf("CF1V timeout: ");
         printf("c=%d, n=%u, t0=%u, t1=%u, t2=%u, t3=%u",dataV.count,dataV.now,dataV.time[0],dataV.time[1],dataV.time[2],dataV.time[3]);
-        printf(", avg=%u us, V=%u\n",(dataV.count>1)?(dataV.now-dataV.time[0])/(dataV.count-1):0,volts.value.int_value);
+        printf(", avg=%u us, %uV\n",(dataV.count>1)?(dataV.now-dataV.time[0])/(dataV.count-1):0,volts.value.int_value);
         // no point in slow shifting, move on to Current(mAmps)
         
         BL0937_collect(SOURCE_CF1A,&dataA);
@@ -311,8 +274,7 @@ void CF1_task(void *arg) {
             homekit_characteristic_notify(&mamps,mamps.value);
             if (taken) printf("CF1A taken:   "); else printf("CF1A timeout: ");
             printf("c=%d, n=%u, t0=%u, t1=%u, t2=%u, t3=%u",dataA.count,dataA.now,dataA.time[0],dataA.time[1],dataA.time[2],dataA.time[3]);
-            printf(", avg=%u us, A=%u\n",(dataA.count>1)?(dataA.now-dataA.time[0])/(dataA.count-1):0,mamps.value.int_value);
-
+            printf(", avg=%u us, %umA\n",(dataA.count>1)?(dataA.now-dataA.time[0])/(dataA.count-1):0,mamps.value.int_value);
             // prepare future results
             done=BL0937_process(&dataA,&timeoutcount,taken);
         }
@@ -404,7 +366,6 @@ void device_init() {
         printf ("%s:calibrated mutipliers not available, current: %f, voltage: %f, watts: %f\n", __func__, calibrated_current_multiplier, calibrated_volts_multiplier, calibrated_power_multiplier);
     }
     
-    xTaskCreate(power_monitoring_task, "Power Monitoring Task", 512, NULL, tskIDLE_PRIORITY+1, NULL);
     BL0937_init(CF_GPIO, CF1_GPIO, SELi_GPIO, MODEL_BL0937);
     xTaskCreate(CF0_task, "CF0_Task", 512, NULL, tskIDLE_PRIORITY+1, NULL);
     xTaskCreate(CF1_task, "CF1_task", 512, NULL, tskIDLE_PRIORITY+1, NULL);
