@@ -52,15 +52,15 @@
 void relay_callback(homekit_characteristic_t *_ch, homekit_value_t    on, void *context);
 void watts_callback(homekit_characteristic_t *_ch, homekit_value_t value, void *context);
 void volts_callback(homekit_characteristic_t *_ch, homekit_value_t value, void *context);
-void  amps_callback(homekit_characteristic_t *_ch, homekit_value_t value, void *context);
+void mamps_callback(homekit_characteristic_t *_ch, homekit_value_t value, void *context);
 void calibrate_pow_set   (homekit_value_t value);
 void calibrate_volts_set (homekit_value_t value);
 void calibrate_power_set (homekit_value_t value);
 
 
 homekit_characteristic_t calibrate_pow   = HOMEKIT_CHARACTERISTIC_(CUSTOM_CALIBRATE_POW, false, .setter=calibrate_pow_set);
-homekit_characteristic_t calibrate_volts = HOMEKIT_CHARACTERISTIC_(CUSTOM_CALIBRATE_VOLTS, 240, .setter=calibrate_volts_set);
-homekit_characteristic_t calibrate_power = HOMEKIT_CHARACTERISTIC_(CUSTOM_CALIBRATE_WATTS,  60, .setter=calibrate_power_set);
+homekit_characteristic_t calibrate_volts = HOMEKIT_CHARACTERISTIC_(CUSTOM_CALIBRATE_VOLTS, 234, .setter=calibrate_volts_set);
+homekit_characteristic_t calibrate_power = HOMEKIT_CHARACTERISTIC_(CUSTOM_CALIBRATE_WATTS,1840, .setter=calibrate_power_set);
 
 homekit_characteristic_t ota_trigger  = API_OTA_TRIGGER;
 homekit_characteristic_t manufacturer = HOMEKIT_CHARACTERISTIC_(MANUFACTURER,  "X");
@@ -70,7 +70,7 @@ homekit_characteristic_t revision     = HOMEKIT_CHARACTERISTIC_(FIRMWARE_REVISIO
 homekit_characteristic_t relay        = HOMEKIT_CHARACTERISTIC_(ON, false, .callback=HOMEKIT_CHARACTERISTIC_CALLBACK(relay_callback));
 homekit_characteristic_t watts        = HOMEKIT_CHARACTERISTIC_(CUSTOM_WATTS, 0, .callback=HOMEKIT_CHARACTERISTIC_CALLBACK(watts_callback));
 homekit_characteristic_t volts        = HOMEKIT_CHARACTERISTIC_(CUSTOM_VOLTS, 0, .callback=HOMEKIT_CHARACTERISTIC_CALLBACK(volts_callback));
-homekit_characteristic_t amps         = HOMEKIT_CHARACTERISTIC_(CUSTOM_AMPS,  0, .callback=HOMEKIT_CHARACTERISTIC_CALLBACK( amps_callback));
+homekit_characteristic_t mamps        = HOMEKIT_CHARACTERISTIC_(CUSTOM_MAMPS, 0, .callback=HOMEKIT_CHARACTERISTIC_CALLBACK(mamps_callback));
 
 const int BUTTON_GPIO =  0;
 const int CF_GPIO     =  4;
@@ -101,9 +101,9 @@ void load_float_param( const char *description, float *new_float_value) {
 
 
 
-float calibrated_volts_multiplier=0;
-float calibrated_current_multiplier=0;
-float calibrated_power_multiplier=0;
+float calibrated_volts_multiplier=140000;
+float calibrated_current_multiplier=12772500;
+float calibrated_power_multiplier=1628400;
 
 void relay_callback(homekit_characteristic_t *_ch, homekit_value_t on, void *context) {
     printf("Relay callback\n");
@@ -114,14 +114,14 @@ void volts_callback(homekit_characteristic_t *_ch, homekit_value_t value, void *
     printf("Volts on callback\n");
 /*    volts.value.int_value = HLW8012_getVoltage();*/
 }
-void amps_callback(homekit_characteristic_t *_ch, homekit_value_t value, void *context) {
-    printf("Amps on callback\n");
-/*    amps.value.float_value = HLW8012_getCurrent();*/
+void mamps_callback(homekit_characteristic_t *_ch, homekit_value_t value, void *context) {
+    printf("mAmps on callback\n");
+/*    mamps.value.int_value = HLW8012_getCurrent();*/
 }
 void watts_callback(homekit_characteristic_t *_ch, homekit_value_t value, void *context) {
     printf("Watts on callback\n");
 /*    watts.value.int_value = HLW8012_getActivePower();*/
-/*    watts.value.int_value = (int) (volts.value.int_value * amps.value.float_value);*/
+/*    watts.value.int_value = (int) (volts.value.int_value * mamps.value.int_value);*/
 }
 
 void save_characteristics() {
@@ -216,9 +216,9 @@ void power_monitoring_task(void *_args) {
 
     while (1) {
         volts.value.int_value = HLW8012_getVoltage();
-        amps.value.float_value = HLW8012_getCurrent();
+        mamps.value.int_value = HLW8012_getCurrent();
         /*watts.value.int_value = HLW8012_getActivePower();*/
-        watts.value.int_value = (int) (volts.value.int_value * amps.value.float_value);
+        watts.value.int_value = (int) (volts.value.int_value * mamps.value.int_value);
         
         printf("%s: [HLW] Active Power (W)    :%d\n", __func__, HLW8012_getActivePower());
         printf("%s: [HLW] Voltage (V)         :%d\n", __func__, HLW8012_getVoltage());
@@ -228,11 +228,11 @@ void power_monitoring_task(void *_args) {
         printf("%s: [HLW] Agg. energy (Ws)    :%d\n", __func__, HLW8012_getEnergy());
         
         homekit_characteristic_bounds_check( &volts);
-        homekit_characteristic_bounds_check( &amps);
+        homekit_characteristic_bounds_check( &mamps);
         homekit_characteristic_bounds_check( &watts);
         
         homekit_characteristic_notify(&volts, volts.value);
-        homekit_characteristic_notify(&amps, amps.value);
+        homekit_characteristic_notify(&mamps, mamps.value);
         homekit_characteristic_notify(&watts, watts.value);
         vTaskDelay(POWER_MONITOR_POLL_PERIOD / portTICK_PERIOD_MS);
     }
@@ -259,9 +259,12 @@ void CF0_task(void *arg) {
     while (1) {
         taken=xSemaphoreTake(mySemaphore, 10000/portTICK_PERIOD_MS);
         // process current results
+        watts.value.int_value=(dataW.count>1)?(int)calibrated_power_multiplier*(dataW.count-1)/(dataW.now-dataW.time[0]):0;
+        homekit_characteristic_bounds_check(&watts);
+        homekit_characteristic_notify(&watts,watts.value);
         if (taken) printf("CF   taken:   "); else printf("CF   timeout: ");
         printf("c=%d, n=%u, t0=%u, t1=%u, t2=%u, t3=%u, t=%u",dataW.count,dataW.now,dataW.time[0],dataW.time[1],dataW.time[2],dataW.time[3],dataW.total);
-        printf(", avg=%u microseconds\n",(dataW.count>1)?(dataW.now-dataW.time[0])/dataW.count-1:0);
+        printf(", avg=%u microseconds\n",(dataW.count>1)?(dataW.now-dataW.time[0])/(dataW.count-1):0);
         // prepare future results
         if (taken) { //implies that BL0937_N values are loaded
             if (timeoutcount>0) { //shift registered values
@@ -302,21 +305,24 @@ void CF1_task(void *arg) {
         BL0937_collect(SOURCE_CF1V,&dataV);
         taken=xSemaphoreTake(mySemaphore, 100/portTICK_PERIOD_MS);
         // process current results
-        volts.value.int_value=(dataV.count>1)?(int)140000*(dataV.count-1)/(dataV.now-dataV.time[0]):0;
+        volts.value.int_value=(dataV.count>1)?(int)calibrated_volts_multiplier*(dataV.count-1)/(dataV.now-dataV.time[0]):0;
         homekit_characteristic_bounds_check(&volts);
         homekit_characteristic_notify(&volts,volts.value);
         if (taken) printf("CF1V taken:   "); else printf("CF1V timeout: ");
         printf("c=%d, n=%u, t0=%u, t1=%u, t2=%u, t3=%u",dataV.count,dataV.now,dataV.time[0],dataV.time[1],dataV.time[2],dataV.time[3]);
-        printf(", avg=%u microseconds\n",(dataV.count>1)?(dataV.now-dataV.time[0])/dataV.count-1:0);
-        // no point in slow shifting, move on to Current(Amps)
+        printf(", avg=%u microseconds\n",(dataV.count>1)?(dataV.now-dataV.time[0])/(dataV.count-1):0);
+        // no point in slow shifting, move on to Current(mAmps)
         
         BL0937_collect(SOURCE_CF1A,&dataA);
         while (1) {
             taken=xSemaphoreTake(mySemaphore, 10000/portTICK_PERIOD_MS);
             // process current results
+            mamps.value.int_value=(dataA.count>1)?10*((int)(calibrated_current_multiplier/10)*(dataA.count-1)/(dataA.now-dataA.time[0])):0;
+            homekit_characteristic_bounds_check(&mamps);
+            homekit_characteristic_notify(&mamps,mamps.value);
             if (taken) printf("CF1A taken:   "); else printf("CF1A timeout: ");
             printf("c=%d, n=%u, t0=%u, t1=%u, t2=%u, t3=%u",dataA.count,dataA.now,dataA.time[0],dataA.time[1],dataA.time[2],dataA.time[3]);
-            printf(", avg=%u microseconds\n",(dataA.count>1)?(dataA.now-dataA.time[0])/dataA.count-1:0);
+            printf(", avg=%u microseconds\n",(dataA.count>1)?(dataA.now-dataA.time[0])/(dataA.count-1):0);
             // prepare future results
             if (taken) { //implies that BL0937_N values are loaded
                 if (timeoutcount>0) { //shift registered values
@@ -372,7 +378,7 @@ homekit_accessory_t *accessories[] = {
                     &relay,
                     &volts,
                     &watts,
-                    &amps,
+                    &mamps,
                     &calibrate_pow,
                     &calibrate_volts,
                     &calibrate_power,

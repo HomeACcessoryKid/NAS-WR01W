@@ -57,17 +57,17 @@
 ##__VA_ARGS__
 
 
-#define HOMEKIT_CHARACTERISTIC_CUSTOM_AMPS HOMEKIT_CUSTOM_UUID("F000000C")
-#define HOMEKIT_DECLARE_CHARACTERISTIC_CUSTOM_AMPS(_value, ...) \
-.type = HOMEKIT_CHARACTERISTIC_CUSTOM_AMPS, \
-.description = "AMPS", \
-.format = homekit_format_float, \
+#define HOMEKIT_CHARACTERISTIC_CUSTOM_MAMPS HOMEKIT_CUSTOM_UUID("F000000C")
+#define HOMEKIT_DECLARE_CHARACTERISTIC_CUSTOM_MAMPS(_value, ...) \
+.type = HOMEKIT_CHARACTERISTIC_CUSTOM_MAMPS, \
+.description = "mAMPS", \
+.format = homekit_format_uint16, \
 .permissions = homekit_permissions_paired_read \
 | homekit_permissions_notify, \
 .min_value = (float[]) {0}, \
-.max_value = (float[]) {18}, \
-.min_step = (float[]) {0.01}, \
-.value = HOMEKIT_FLOAT_(_value), \
+.max_value = (float[]) {18000}, \
+.min_step = (float[]) {10}, \
+.value = HOMEKIT_UINT16_(_value), \
 ##__VA_ARGS__
 
 
