@@ -229,12 +229,12 @@ void CF0_task(void *arg) {
         while(!cf0_done) {
             taken=xSemaphoreTake(mySemaphore, 10000/portTICK_PERIOD_MS);
             // process current results
-            watts.value.float_value=(dataW.count>1)?((int)10*(1628400*(dataW.count-1)/(dataW.now-dataW.time[0])))/10:0;
+            watts.value.float_value=(dataW.count>1)?((int)10*(1628400*(dataW.count-1)/(dataW.now-dataW.time[0])))/10.0:0;
             homekit_characteristic_bounds_check(&watts);
             homekit_characteristic_notify(&watts,watts.value);
             if (taken) printf("CF   taken:   "); else printf("CF   timeout: ");
             printf("c=%d, n=%u, t0=%u, t1=%u, t2=%u, t3=%u, t=%u",dataW.count,dataW.now,dataW.time[0],dataW.time[1],dataW.time[2],dataW.time[3],dataW.total);
-            printf(", avg=%u us, %fW\n",(dataW.count>1)?(dataW.now-dataW.time[0])/(dataW.count-1):0,watts.value.float_value);
+            printf(", avg=%u us, %.1fW\n",(dataW.count>1)?(dataW.now-dataW.time[0])/(dataW.count-1):0,watts.value.float_value);
             // prepare future results
             cf0_done=(cf0_done || 20*watts.value.float_value<old_value || BL0937_process(&dataW,taken));
             if (20*watts.value.float_value<old_value) cf1_done=true; //when connected device switches off, detect ASAP
