@@ -14,6 +14,7 @@ static BL0937_data_t *_cf1=NULL;
 // SemaphoreHandle_t   semaphore;  //must set
 // uint32_t            mintime;    //must set in microseconds
 // uint32_t            total;      //does not clear
+// uint32_t            to_count;   //autoinit
 // uint32_t            count;      //autoinit
 // uint32_t            now;        //autoinit
 // uint32_t            time[BL0937_N]; //autoinit
@@ -63,6 +64,7 @@ void BL0937_collect(BL0937_source_t source, BL0937_data_t *data) {
     if (data->semaphore) {
         if (source==SOURCE_CF) {
             _cf0=NULL; //to prevent interrupt from touching this fresh dataset
+            data->to_count=0;
             data->count=0;
             data->now=0;
             for (int i=0; i<BL0937_N; i++) data->time[i]=0;
@@ -70,6 +72,7 @@ void BL0937_collect(BL0937_source_t source, BL0937_data_t *data) {
             _cf0=data; //ready to go
         } else { //SOURCE_CF1x
             _cf1=NULL; //to prevent interrupt from touching this fresh dataset
+            data->to_count=0;
             data->count=0;
             data->now=0;
             for (int i=0; i<BL0937_N; i++) data->time[i]=0;
@@ -81,12 +84,12 @@ void BL0937_collect(BL0937_source_t source, BL0937_data_t *data) {
     } else printf("ERROR: Must set semaphore!\n");
 }
 
-bool BL0937_process(BL0937_data_t *data, int *timeoutcount, BaseType_t taken) {
+bool BL0937_process(BL0937_data_t *data, BaseType_t taken) {
     int shift,i,j;
     if (taken) { //implies that BL0937_N values are loaded
-        if (*timeoutcount>0) { //shift registered values
-            shift=(int)(BL0937_N/(*timeoutcount+1)+0.4); //almost round to nearest integer
-            printf("toc=%d, shift=%d\n",*timeoutcount,shift);
+        if (data->to_count>0) { //shift registered values
+            shift=(int)(BL0937_N/(data->to_count+1)+0.4); //almost round to nearest integer
+            printf("toc=%d, shift=%d\n",data->to_count,shift);
             for (i=0;i<shift;i++) { //TODO: less lazy solution
                 for (j=0;j<BL0937_N-1;j++) {
                     data->time[j]=data->time[j+1];
@@ -94,11 +97,11 @@ bool BL0937_process(BL0937_data_t *data, int *timeoutcount, BaseType_t taken) {
             }
             data->count-=shift;
         } else return true; //toc==0, speedy enough, start over
-        *timeoutcount=0; //TODO: maybe only decrease a bit?
+        data->to_count=0; //TODO: maybe only decrease a bit?
     } else { //timed out
-        (*timeoutcount)++;
-        if (*timeoutcount>12) { //after 2 min declare it NO LOAD and reset history
-            *timeoutcount=0;
+        data->to_count++;
+        if (data->to_count>12) { //after 2 min declare it NO LOAD and reset history
+            data->to_count=0;
             return true;
         }
     }

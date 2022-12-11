@@ -33,13 +33,13 @@
 #define HOMEKIT_DECLARE_CHARACTERISTIC_CUSTOM_WATTS(_value, ...) \
 .type = HOMEKIT_CHARACTERISTIC_CUSTOM_WATTS, \
 .description = "WATTS", \
-.format = homekit_format_uint16, \
+.format = homekit_format_float, \
 .permissions = homekit_permissions_paired_read \
 | homekit_permissions_notify, \
 .min_value = (float[]) {0}, \
 .max_value = (float[]) {4500}, \
-.min_step = (float[]) {1}, \
-.value = HOMEKIT_UINT16_(_value), \
+.min_step = (float[]) {0.1}, \
+.value = HOMEKIT_FLOAT_(_value), \
 ##__VA_ARGS__
 
 
@@ -51,7 +51,7 @@
 .permissions = homekit_permissions_paired_read \
 | homekit_permissions_notify, \
 .min_value = (float[]) {0}, \
-.max_value = (float[]) {250}, \
+.max_value = (float[]) {260}, \
 .min_step = (float[]) {1}, \
 .value = HOMEKIT_UINT16_(_value), \
 ##__VA_ARGS__

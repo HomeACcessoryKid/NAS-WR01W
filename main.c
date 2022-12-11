@@ -172,8 +172,8 @@ void mamps_callback(homekit_characteristic_t *_ch, homekit_value_t value, void *
 }
 void watts_callback(homekit_characteristic_t *_ch, homekit_value_t value, void *context) {
 //     printf("Watts on callback\n");
-/*    watts.value.int_value = HLW8012_getActivePower();*/
-/*    watts.value.int_value = (int) (volts.value.int_value * mamps.value.int_value);*/
+/*    watts.value.float_value = HLW8012_getActivePower();*/
+/*    watts.value.float_value = (float) (volts.value.int_value * mamps.value.int_value);*/
 }
 
 void save_characteristics() {
@@ -208,6 +208,7 @@ void calibrate_power_set(homekit_value_t value) {
 //  SemaphoreHandle_t   semaphore;  //must set
 //  uint32_t            mintime;    //must set in microseconds
 //  uint32_t            total;      //does not clear
+//  uint32_t            to_count;   //autoinit
 //  uint32_t            count;      //autoinit
 //  uint32_t            now;        //autoinit
 //  uint32_t            time[BL0937_N]; //autoinit
@@ -220,8 +221,7 @@ void CF0_task(void *arg) {
     dataW.mintime=1000*1000; //1 second
     dataW.total=0;
     BaseType_t taken;
-    int timeoutcount=0;
-    uint16_t old_value=0;
+    float old_value=0;
     
     while (1) {
         BL0937_collect(SOURCE_CF,&dataW);
@@ -229,16 +229,16 @@ void CF0_task(void *arg) {
         while(!cf0_done) {
             taken=xSemaphoreTake(mySemaphore, 10000/portTICK_PERIOD_MS);
             // process current results
-            watts.value.int_value=(dataW.count>1)?(int)1628400*(dataW.count-1)/(dataW.now-dataW.time[0]):0;
+            watts.value.float_value=(dataW.count>1)?((int)10*(1628400*(dataW.count-1)/(dataW.now-dataW.time[0])))/10:0;
             homekit_characteristic_bounds_check(&watts);
             homekit_characteristic_notify(&watts,watts.value);
             if (taken) printf("CF   taken:   "); else printf("CF   timeout: ");
             printf("c=%d, n=%u, t0=%u, t1=%u, t2=%u, t3=%u, t=%u",dataW.count,dataW.now,dataW.time[0],dataW.time[1],dataW.time[2],dataW.time[3],dataW.total);
-            printf(", avg=%u us, %uW\n",(dataW.count>1)?(dataW.now-dataW.time[0])/(dataW.count-1):0,watts.value.int_value);
+            printf(", avg=%u us, %fW\n",(dataW.count>1)?(dataW.now-dataW.time[0])/(dataW.count-1):0,watts.value.float_value);
             // prepare future results
-            cf0_done=(cf0_done || 20*watts.value.int_value<old_value || BL0937_process(&dataW,&timeoutcount,taken));
-            if (20*watts.value.int_value<old_value) cf1_done=true; //when connected device switches off, detect ASAP
-            old_value=watts.value.int_value; //bound to fail, because the actual value will not yet update, catch 22
+            cf0_done=(cf0_done || 20*watts.value.float_value<old_value || BL0937_process(&dataW,taken));
+            if (20*watts.value.float_value<old_value) cf1_done=true; //when connected device switches off, detect ASAP
+            old_value=watts.value.float_value;
         }
     }
     vTaskDelete(NULL);
@@ -254,7 +254,6 @@ void CF1_task(void *arg) {
     dataV.mintime=  50*1000; //50 msecond
     dataA.mintime=1000*1000; // 1  second
     BaseType_t taken;
-    int timeoutcount=0;
     uint16_t old_value=0;
     
     while (1) {
@@ -281,9 +280,9 @@ void CF1_task(void *arg) {
             printf("c=%d, n=%u, t0=%u, t1=%u, t2=%u, t3=%u",dataA.count,dataA.now,dataA.time[0],dataA.time[1],dataA.time[2],dataA.time[3]);
             printf(", avg=%u us, %umA\n",(dataA.count>1)?(dataA.now-dataA.time[0])/(dataA.count-1):0,mamps.value.int_value);
             // prepare future results
-            cf1_done=(cf1_done || 20*watts.value.int_value<old_value || BL0937_process(&dataA,&timeoutcount,taken));
+            cf1_done=(cf1_done || 20*mamps.value.int_value<old_value || BL0937_process(&dataA,taken));
             if (20*mamps.value.int_value<old_value) cf0_done=true; //when connected device switches off, detect ASAP
-            old_value=mamps.value.int_value; //bound to fail, because the actual value will not yet update, catch 22
+            old_value=mamps.value.int_value;
         }
     }
     vTaskDelete(NULL);
