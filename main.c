@@ -261,8 +261,7 @@ void CF0_task(void *arg) {
         // process current results
         if (taken) printf("CF   taken:   "); else printf("CF   timeout: ");
         printf("c=%d, n=%u, t0=%u, t1=%u, t2=%u, t3=%u, t=%u",dataW.count,dataW.now,dataW.time[0],dataW.time[1],dataW.time[2],dataW.time[3],dataW.total);
-        if (dataW.count) printf(", avg=%u microseconds",(dataW.now-dataW.time[0])/dataW.count);
-        printf("\n");
+        printf(", avg=%u microseconds\n",(dataW.count>1)?(dataW.now-dataW.time[0])/dataW.count-1:0);
         // prepare future results
         if (taken) { //implies that BL0937_N values are loaded
             if (timeoutcount>0) { //shift registered values
@@ -289,7 +288,6 @@ void CF0_task(void *arg) {
 
 void CF1_task(void *arg) {
     printf ("%s:\n", __func__);
-    int timedout;
     SemaphoreHandle_t mySemaphore=xSemaphoreCreateBinary();
     BL0937_data_t dataV;
     BL0937_data_t dataA;
@@ -297,29 +295,48 @@ void CF1_task(void *arg) {
     dataA.semaphore=mySemaphore;
     dataV.mintime=  50000; //50 msecond
     dataA.mintime=1000000; // 1 second
+    int timeoutcount=0,i,j,shift;
+    BaseType_t taken;
+    
     while (1) {
         BL0937_collect(SOURCE_CF1V,&dataV);
-        if (xSemaphoreTake(mySemaphore,   100/portTICK_PERIOD_MS) == pdTRUE) {    
-            printf("CF1V taken:   ");
-        } else {
-            printf("CF1V timeout: ");
-        }
+        taken=xSemaphoreTake(mySemaphore, 100/portTICK_PERIOD_MS);
+        // process current results
+        volts.value.int_value=(dataV.count>1)?(int)140000*(dataV.count-1)/(dataV.now-dataV.time[0]):0;
+        homekit_characteristic_bounds_check(&volts);
+        homekit_characteristic_notify(&volts,volts.value);
+        if (taken) printf("CF1V taken:   "); else printf("CF1V timeout: ");
         printf("c=%d, n=%u, t0=%u, t1=%u, t2=%u, t3=%u",dataV.count,dataV.now,dataV.time[0],dataV.time[1],dataV.time[2],dataV.time[3]);
-        if (dataV.count) printf(", avg=%u microseconds",(dataV.now-dataV.time[0])/dataV.count);
-        printf("\n");
+        printf(", avg=%u microseconds\n",(dataV.count>1)?(dataV.now-dataV.time[0])/dataV.count-1:0);
+        // no point in slow shifting, move on to Current(Amps)
         
         BL0937_collect(SOURCE_CF1A,&dataA);
-        timedout=0;
-        while (timedout<10 && dataA.count<BL0937_N) {
-            if (xSemaphoreTake(mySemaphore, 10000/portTICK_PERIOD_MS) == pdTRUE) {    
-                printf("CF1A taken:   ");
-            } else {
-                timedout++;
-                printf("CF1A timeout: ");
-            }
+        while (1) {
+            taken=xSemaphoreTake(mySemaphore, 10000/portTICK_PERIOD_MS);
+            // process current results
+            if (taken) printf("CF1A taken:   "); else printf("CF1A timeout: ");
             printf("c=%d, n=%u, t0=%u, t1=%u, t2=%u, t3=%u",dataA.count,dataA.now,dataA.time[0],dataA.time[1],dataA.time[2],dataA.time[3]);
-            if (dataA.count) printf(", avg=%u microseconds",(dataA.now-dataA.time[0])/dataA.count);
-            printf("\n");
+            printf(", avg=%u microseconds\n",(dataA.count>1)?(dataA.now-dataA.time[0])/dataA.count-1:0);
+            // prepare future results
+            if (taken) { //implies that BL0937_N values are loaded
+                if (timeoutcount>0) { //shift registered values
+                    shift=(int)(BL0937_N/(timeoutcount+1)+0.4); //almost round to nearest integer
+                    printf("toc=%d, shift=%d\n",timeoutcount,shift);
+                    for (i=0;i<shift;i++) { //TODO: less lazy solution
+                        for (j=0;j<BL0937_N-1;j++) {
+                            dataA.time[j]=dataA.time[j+1];
+                        }
+                    }
+                    dataA.count-=shift;
+                } else break; //toc==0, speedy enough, move on to Voltage
+                timeoutcount=0; //TODO: maybe only decrease a bit?
+            } else { //timed out
+                timeoutcount++;
+                if (timeoutcount>12) { //after 2 min declare it NO LOAD and reset history
+                    timeoutcount=0;
+                    break; //move on to Voltage
+                }
+            }
         }
     }
     vTaskDelete(NULL);
