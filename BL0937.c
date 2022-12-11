@@ -80,3 +80,27 @@ void BL0937_collect(BL0937_source_t source, BL0937_data_t *data) {
         }
     } else printf("ERROR: Must set semaphore!\n");
 }
+
+bool BL0937_process(BL0937_data_t *data, int *timeoutcount, BaseType_t taken) {
+    int shift,i,j;
+    if (taken) { //implies that BL0937_N values are loaded
+        if (*timeoutcount>0) { //shift registered values
+            shift=(int)(BL0937_N/(*timeoutcount+1)+0.4); //almost round to nearest integer
+            printf("toc=%d, shift=%d\n",*timeoutcount,shift);
+            for (i=0;i<shift;i++) { //TODO: less lazy solution
+                for (j=0;j<BL0937_N-1;j++) {
+                    data->time[j]=data->time[j+1];
+                }
+            }
+            data->count-=shift;
+        } else return true; //toc==0, speedy enough, start over
+        *timeoutcount=0; //TODO: maybe only decrease a bit?
+    } else { //timed out
+        (*timeoutcount)++;
+        if (*timeoutcount>12) { //after 2 min declare it NO LOAD and reset history
+            *timeoutcount=0;
+            return true;
+        }
+    }
+    return false;
+}

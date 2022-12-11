@@ -34,5 +34,7 @@ void BL0937_init(uint8_t cf_pin, uint8_t cf1_pin, uint8_t sel_pin, BL0937_model_
 
 void BL0937_collect(BL0937_source_t source, BL0937_data_t *data);
 
+bool BL0937_process(BL0937_data_t *data, int *timeoutcount, BaseType_t taken);
+
 
 #endif

@@ -101,7 +101,7 @@ void load_float_param( const char *description, float *new_float_value) {
 
 
 
-float calibrated_volts_multiplier=140000;
+float calibrated_volts_multiplier=142000;
 float calibrated_current_multiplier=12772500;
 float calibrated_power_multiplier=1628400;
 
@@ -252,38 +252,25 @@ void CF0_task(void *arg) {
     dataW.semaphore=mySemaphore;
     dataW.mintime=1000*1000; //1 second
     dataW.total=0;
-    int timeoutcount=0,i,j,shift;
+    int timeoutcount=0;
+    bool done;
     BaseType_t taken;
-    BL0937_collect(SOURCE_CF,&dataW);
     
     while (1) {
-        taken=xSemaphoreTake(mySemaphore, 10000/portTICK_PERIOD_MS);
-        // process current results
-        watts.value.int_value=(dataW.count>1)?(int)1628400*(dataW.count-1)/(dataW.now-dataW.time[0]):0;
-        homekit_characteristic_bounds_check(&watts);
-        homekit_characteristic_notify(&watts,watts.value);
-        if (taken) printf("CF   taken:   "); else printf("CF   timeout: ");
-        printf("c=%d, n=%u, t0=%u, t1=%u, t2=%u, t3=%u, t=%u",dataW.count,dataW.now,dataW.time[0],dataW.time[1],dataW.time[2],dataW.time[3],dataW.total);
-        printf(", avg=%u us, W=%u\n",(dataW.count>1)?(dataW.now-dataW.time[0])/(dataW.count-1):0,watts.value.int_value);
-        // prepare future results
-        if (taken) { //implies that BL0937_N values are loaded
-            if (timeoutcount>0) { //shift registered values
-                shift=(int)(BL0937_N/(timeoutcount+1)+0.4); //almost round to nearest integer
-                printf("toc=%d, shift=%d\n",timeoutcount,shift);
-                for (i=0;i<shift;i++) { //TODO: less lazy solution
-                    for (j=0;j<BL0937_N-1;j++) {
-                        dataW.time[j]=dataW.time[j+1];
-                    }
-                }
-                dataW.count-=shift;
-            } else BL0937_collect(SOURCE_CF,&dataW); //toc==0, speedy enough, start over
-            timeoutcount=0; //TODO: maybe only decrease a bit?
-        } else { //timed out
-            timeoutcount++;
-            if (timeoutcount>12) { //after 2 min declare it NO LOAD and reset history
-                timeoutcount=0;
-                BL0937_collect(SOURCE_CF,&dataW);
-            }
+        BL0937_collect(SOURCE_CF,&dataW);
+        done=false;
+        while(!done) {
+            taken=xSemaphoreTake(mySemaphore, 10000/portTICK_PERIOD_MS);
+            // process current results
+            watts.value.int_value=(dataW.count>1)?(int)1628400*(dataW.count-1)/(dataW.now-dataW.time[0]):0;
+            homekit_characteristic_bounds_check(&watts);
+            homekit_characteristic_notify(&watts,watts.value);
+            if (taken) printf("CF   taken:   "); else printf("CF   timeout: ");
+            printf("c=%d, n=%u, t0=%u, t1=%u, t2=%u, t3=%u, t=%u",dataW.count,dataW.now,dataW.time[0],dataW.time[1],dataW.time[2],dataW.time[3],dataW.total);
+            printf(", avg=%u us, W=%u\n",(dataW.count>1)?(dataW.now-dataW.time[0])/(dataW.count-1):0,watts.value.int_value);
+
+            // prepare future results
+            done=BL0937_process(&dataW,&timeoutcount,taken);
         }
     }
     vTaskDelete(NULL);
@@ -298,14 +285,15 @@ void CF1_task(void *arg) {
     dataA.semaphore=mySemaphore;
     dataV.mintime=  50000; //50 msecond
     dataA.mintime=1000000; // 1 second
-    int timeoutcount=0,i,j,shift;
+    int timeoutcount=0;
+    bool done;
     BaseType_t taken;
     
     while (1) {
         BL0937_collect(SOURCE_CF1V,&dataV);
         taken=xSemaphoreTake(mySemaphore, 100/portTICK_PERIOD_MS);
         // process current results
-        volts.value.int_value=(dataV.count>1)?(int)140000*(dataV.count-1)/(dataV.now-dataV.time[0]):0;
+        volts.value.int_value=(dataV.count>1)?(int)142000*(dataV.count-1)/(dataV.now-dataV.time[0]):0;
         homekit_characteristic_bounds_check(&volts);
         homekit_characteristic_notify(&volts,volts.value);
         if (taken) printf("CF1V taken:   "); else printf("CF1V timeout: ");
@@ -314,7 +302,8 @@ void CF1_task(void *arg) {
         // no point in slow shifting, move on to Current(mAmps)
         
         BL0937_collect(SOURCE_CF1A,&dataA);
-        while (1) {
+        done=false;
+        while(!done) {
             taken=xSemaphoreTake(mySemaphore, 10000/portTICK_PERIOD_MS);
             // process current results
             mamps.value.int_value=(dataA.count>1)?10*((int)(12772500/10)*(dataA.count-1)/(dataA.now-dataA.time[0])):0;
@@ -323,26 +312,9 @@ void CF1_task(void *arg) {
             if (taken) printf("CF1A taken:   "); else printf("CF1A timeout: ");
             printf("c=%d, n=%u, t0=%u, t1=%u, t2=%u, t3=%u",dataA.count,dataA.now,dataA.time[0],dataA.time[1],dataA.time[2],dataA.time[3]);
             printf(", avg=%u us, A=%u\n",(dataA.count>1)?(dataA.now-dataA.time[0])/(dataA.count-1):0,mamps.value.int_value);
+
             // prepare future results
-            if (taken) { //implies that BL0937_N values are loaded
-                if (timeoutcount>0) { //shift registered values
-                    shift=(int)(BL0937_N/(timeoutcount+1)+0.4); //almost round to nearest integer
-                    printf("toc=%d, shift=%d\n",timeoutcount,shift);
-                    for (i=0;i<shift;i++) { //TODO: less lazy solution
-                        for (j=0;j<BL0937_N-1;j++) {
-                            dataA.time[j]=dataA.time[j+1];
-                        }
-                    }
-                    dataA.count-=shift;
-                } else break; //toc==0, speedy enough, move on to Voltage
-                timeoutcount=0; //TODO: maybe only decrease a bit?
-            } else { //timed out
-                timeoutcount++;
-                if (timeoutcount>12) { //after 2 min declare it NO LOAD and reset history
-                    timeoutcount=0;
-                    break; //move on to Voltage
-                }
-            }
+            done=BL0937_process(&dataA,&timeoutcount,taken);
         }
     }
     vTaskDelete(NULL);
