@@ -153,11 +153,14 @@ void load_float_param( const char *description, float *new_float_value) {
 float calibrated_volts_multiplier=142000;
 float calibrated_current_multiplier=12772500;
 float calibrated_power_multiplier=1628400;
+bool  cf0_done, cf1_done;
+
 
 void relay_callback(homekit_characteristic_t *_ch, homekit_value_t on, void *context) {
     printf("Relay callback\n");
     relay_write(relay.value.bool_value, relay_gpio);
     led_write(relay.value.bool_value, LED_GPIO);
+    cf0_done=cf1_done=true; //when switching, always start new measurments ASAP
 }
 void volts_callback(homekit_characteristic_t *_ch, homekit_value_t value, void *context) {
 //     printf("Volts on callback\n");
@@ -216,14 +219,14 @@ void CF0_task(void *arg) {
     dataW.semaphore=mySemaphore;
     dataW.mintime=1000*1000; //1 second
     dataW.total=0;
-    bool done;
     BaseType_t taken;
     int timeoutcount=0;
+    uint16_t old_value=0;
     
     while (1) {
         BL0937_collect(SOURCE_CF,&dataW);
-        done=false;
-        while(!done) {
+        cf0_done=false;
+        while(!cf0_done) {
             taken=xSemaphoreTake(mySemaphore, 10000/portTICK_PERIOD_MS);
             // process current results
             watts.value.int_value=(dataW.count>1)?(int)1628400*(dataW.count-1)/(dataW.now-dataW.time[0]):0;
@@ -233,7 +236,9 @@ void CF0_task(void *arg) {
             printf("c=%d, n=%u, t0=%u, t1=%u, t2=%u, t3=%u, t=%u",dataW.count,dataW.now,dataW.time[0],dataW.time[1],dataW.time[2],dataW.time[3],dataW.total);
             printf(", avg=%u us, %uW\n",(dataW.count>1)?(dataW.now-dataW.time[0])/(dataW.count-1):0,watts.value.int_value);
             // prepare future results
-            done=BL0937_process(&dataW,&timeoutcount,taken);
+            cf0_done=BL0937_process(&dataW,&timeoutcount,taken);
+            if (20*watts.value.int_value<old_value) cf0_done=cf1_done=true; //when connected device switches off, detect ASAP
+            old_value=watts.value.int_value; //bound to fail, because the actual value will not yet update, catch 22
         }
     }
     vTaskDelete(NULL);
@@ -248,9 +253,9 @@ void CF1_task(void *arg) {
     dataA.semaphore=mySemaphore;
     dataV.mintime=  50*1000; //50 msecond
     dataA.mintime=1000*1000; // 1  second
-    bool done;
     BaseType_t taken;
     int timeoutcount=0;
+    uint16_t old_value=0;
     
     while (1) {
         BL0937_collect(SOURCE_CF1V,&dataV);
@@ -265,8 +270,8 @@ void CF1_task(void *arg) {
         // no point in slow shifting, move on to Current(mAmps)
         
         BL0937_collect(SOURCE_CF1A,&dataA);
-        done=false;
-        while(!done) {
+        cf1_done=false;
+        while(!cf1_done) {
             taken=xSemaphoreTake(mySemaphore, 10000/portTICK_PERIOD_MS);
             // process current results
             mamps.value.int_value=(dataA.count>1)?10*((int)(12772500/10)*(dataA.count-1)/(dataA.now-dataA.time[0])):0;
@@ -276,7 +281,9 @@ void CF1_task(void *arg) {
             printf("c=%d, n=%u, t0=%u, t1=%u, t2=%u, t3=%u",dataA.count,dataA.now,dataA.time[0],dataA.time[1],dataA.time[2],dataA.time[3]);
             printf(", avg=%u us, %umA\n",(dataA.count>1)?(dataA.now-dataA.time[0])/(dataA.count-1):0,mamps.value.int_value);
             // prepare future results
-            done=BL0937_process(&dataA,&timeoutcount,taken);
+            cf1_done=BL0937_process(&dataA,&timeoutcount,taken);
+            if (20*mamps.value.int_value<old_value) cf0_done=cf1_done=true; //when connected device switches off, detect ASAP
+            old_value=mamps.value.int_value; //bound to fail, because the actual value will not yet update, catch 22
         }
     }
     vTaskDelete(NULL);
