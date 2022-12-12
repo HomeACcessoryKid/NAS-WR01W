@@ -96,10 +96,11 @@ bool BL0937_process(BL0937_data_t *data, BaseType_t taken) {
                 }
             }
             data->count-=shift;
+            data->to_count=0; //TODO: maybe only decrease a bit?
         } else return true; //toc==0, speedy enough, start over
-        data->to_count=0; //TODO: maybe only decrease a bit?
     } else { //timed out
         data->to_count++;
+        printf("toc=%d, continue\n",data->to_count);
         if (data->to_count>12) { //after 2 min declare it NO LOAD and reset history
             data->to_count=0;
             return true;
