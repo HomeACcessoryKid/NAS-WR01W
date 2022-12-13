@@ -233,7 +233,7 @@ void CF0_task(void *arg) {
             homekit_characteristic_bounds_check(&watts);
             homekit_characteristic_notify(&watts,watts.value);
             if (taken) printf("CF   taken:   "); else printf("CF   timeout: ");
-            printf("c=%d, n=%u, t0=%u, t1=%u, t2=%u, t3=%u, t=%u",dataW.count,dataW.now,dataW.time[0],dataW.time[1],dataW.time[2],dataW.time[3],dataW.total);
+            printf("c=%d, n=%u, t0=%u, t1=%u, t2=%u, t3=%u, t4=%u, t=%u",dataW.count,dataW.now,dataW.time[0],dataW.time[1],dataW.time[2],dataW.time[3],dataW.time[4],dataW.total);
             printf(", avg=%u us, %.1fW\n",(dataW.count>1)?(dataW.now-dataW.time[0])/(dataW.count-1):0,watts.value.float_value);
             // prepare future results
             cf0_done=(cf0_done || 20*watts.value.float_value<old_value || BL0937_process(&dataW,taken));
@@ -264,7 +264,7 @@ void CF1_task(void *arg) {
         homekit_characteristic_bounds_check(&volts);
         homekit_characteristic_notify(&volts,volts.value);
         if (taken) printf("CF1V taken:   "); else printf("CF1V timeout: ");
-        printf("c=%d, n=%u, t0=%u, t1=%u, t2=%u, t3=%u",dataV.count,dataV.now,dataV.time[0],dataV.time[1],dataV.time[2],dataV.time[3]);
+        printf("c=%d, n=%u, t0=%u",dataV.count,dataV.now,dataV.time[0]);
         printf(", avg=%u us, %uV\n",(dataV.count>1)?(dataV.now-dataV.time[0])/(dataV.count-1):0,volts.value.int_value);
         // no point in slow shifting, move on to Current(mAmps)
         
@@ -272,12 +272,12 @@ void CF1_task(void *arg) {
         cf1_done=false;
         while(!cf1_done) {
             taken=xSemaphoreTake(mySemaphore, 10000/portTICK_PERIOD_MS);
-            // process current results
-            mamps.value.int_value=(dataA.count>1)?10*((int)(12772500/10)*(dataA.count-1)/(dataA.now-dataA.time[0])):0;
+            // process current results, be aware that the count could be as high as 3000 so first part just under 2^32
+            mamps.value.int_value=(dataA.count>1)?(int)(((12772500/10)*(dataA.count-1)/((dataA.now-dataA.time[0])/10))+0.5):0;
             homekit_characteristic_bounds_check(&mamps);
             homekit_characteristic_notify(&mamps,mamps.value);
             if (taken) printf("CF1A taken:   "); else printf("CF1A timeout: ");
-            printf("c=%d, n=%u, t0=%u, t1=%u, t2=%u, t3=%u",dataA.count,dataA.now,dataA.time[0],dataA.time[1],dataA.time[2],dataA.time[3]);
+            printf("c=%d, n=%u, t0=%u, t1=%u, t2=%u, t3=%u, t4=%u",dataA.count,dataA.now,dataA.time[0],dataA.time[1],dataA.time[2],dataA.time[3],dataA.time[4]);
             printf(", avg=%u us, %umA\n",(dataA.count>1)?(dataA.now-dataA.time[0])/(dataA.count-1):0,mamps.value.int_value);
             // prepare future results
             cf1_done=(cf1_done || 20*mamps.value.int_value<old_value || BL0937_process(&dataA,taken));

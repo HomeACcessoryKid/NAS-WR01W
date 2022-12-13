@@ -66,7 +66,7 @@
 | homekit_permissions_notify, \
 .min_value = (float[]) {0}, \
 .max_value = (float[]) {18000}, \
-.min_step = (float[]) {10}, \
+.min_step = (float[]) {1}, \
 .value = HOMEKIT_UINT16_(_value), \
 ##__VA_ARGS__
 
