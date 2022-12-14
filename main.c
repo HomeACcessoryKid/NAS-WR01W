@@ -234,7 +234,7 @@ void CF0_task(void *arg) {
             watts.value.float_value=(dataW.count>1)?((int)((1701140*(dataW.count-1))/((dataW.now-dataW.time[0])/10)))/10.0:0;
             homekit_characteristic_bounds_check(&watts);
             homekit_characteristic_notify(&watts,watts.value);
-            mWhs.value.int_value=(uint32_t)(dataW.count*0.473456);
+            mWhs.value.int_value=(uint32_t)(dataW.total*0.473456);
             homekit_characteristic_bounds_check(&mWhs);
             homekit_characteristic_notify(&mWhs,mWhs.value);
             if (taken) printf("CF   taken:   "); else printf("CF   timeout: ");
@@ -336,11 +336,6 @@ homekit_accessory_t *accessories[] = {
     NULL
 };
 
-homekit_server_config_t config = {
-    .accessories = accessories,
-    .password = "111-11-111"
-};
-
 void button_callback(uint8_t gpio, void *args) {
     printf("Toggling relay\n");
     relay.value.bool_value = !relay.value.bool_value;
@@ -350,7 +345,13 @@ void button_callback(uint8_t gpio, void *args) {
     // sdk_os_timer_arm (&save_timer, SAVE_DELAY, 0 );
 }
 
+homekit_server_config_t config;
 void device_init() {
+  if (homekit_is_paired()) {
+    udplog_init(3);
+    UDPLUS("\n\n\nNAS-WR01W " VERSION "\n");
+    config.on_event=NULL;
+
     adv_button_set_evaluate_delay(10);
     adv_button_create(BUTTON_GPIO, true, false); // GPIO for button, pull-up resistor, inverted 
     adv_button_register_callback_fn(BUTTON_GPIO, button_callback, 1, NULL);
@@ -384,12 +385,17 @@ void device_init() {
     sdk_os_timer_setfn(&save_timer, save_characteristics, NULL);
 
     // homekit_characteristic_notify(&relay, relay.value);
+  }
 }
+
+homekit_server_config_t config = {
+    .accessories = accessories,
+    .on_event=device_init,
+    .password = "111-11-111"
+};
 
 void user_init(void) {
     uart_set_baud(0, 115200);
-    udplog_init(3);
-    UDPLUS("\n\n\nNAS-WR01W " VERSION "\n");
 
     device_init();
     
