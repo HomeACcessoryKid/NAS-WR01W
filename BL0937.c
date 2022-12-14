@@ -19,22 +19,11 @@ static BL0937_data_t *_cf1=NULL;
 // uint32_t            now;        //autoinit
 // uint32_t            time[BL0937_N]; //autoinit
 
-static void  IRAM _cf0_interrupt_handler(uint8_t gpio_num) {
-    BaseType_t yield = pdFALSE;
-    BL0937_data_t *cf=_cf0;
+static void  IRAM _interrupt_handler(uint8_t gpio_num) {
+    BL0937_data_t   *cf=(gpio_num==_cf0_pin)?_cf0:_cf1;
+    BaseType_t   yield = pdFALSE;
     if (cf) {
         cf->total++;
-        cf->now=sdk_system_get_time();
-        if (cf->count  < BL0937_N) cf->time[cf->count]=cf->now;
-        if (cf->count++> BL0937_N-2 && (cf->now-cf->time[0])>cf->mintime) xSemaphoreGiveFromISR(cf->semaphore,&yield);
-        if (yield) taskYIELD();
-    }
-}
-
-static void  IRAM _cf1_interrupt_handler(uint8_t gpio_num) {
-    BaseType_t yield = pdFALSE;
-    BL0937_data_t *cf=_cf1;
-    if (cf) {
         cf->now=sdk_system_get_time();
         if (cf->count  < BL0937_N) cf->time[cf->count]=cf->now;
         if (cf->count++> BL0937_N-2 && (cf->now-cf->time[0])>cf->mintime) xSemaphoreGiveFromISR(cf->semaphore,&yield);
@@ -50,14 +39,14 @@ void BL0937_init(uint8_t cf_pin, uint8_t cf1_pin, uint8_t sel_pin, BL0937_model_
 
     gpio_enable(_cf0_pin, GPIO_INPUT);
     gpio_set_pullup(_cf0_pin, true, false);
-    gpio_set_interrupt( _cf0_pin, GPIO_INTTYPE_EDGE_POS, _cf0_interrupt_handler);
+    gpio_set_interrupt( _cf0_pin, GPIO_INTTYPE_EDGE_POS, _interrupt_handler);
 
     gpio_enable(_sel_pin, GPIO_OUTPUT);
     gpio_write(_sel_pin, 0); //TODO: ??
 
     gpio_enable(_cf1_pin, GPIO_INPUT);
     gpio_set_pullup(_cf1_pin, true, false);
-    gpio_set_interrupt( _cf1_pin, GPIO_INTTYPE_EDGE_POS, _cf1_interrupt_handler);
+    gpio_set_interrupt( _cf1_pin, GPIO_INTTYPE_EDGE_POS, _interrupt_handler);
 }
 
 void BL0937_collect(BL0937_source_t source, BL0937_data_t *data) {
