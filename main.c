@@ -70,7 +70,6 @@ homekit_characteristic_t relay        = HOMEKIT_CHARACTERISTIC_(ON, false, .call
 homekit_characteristic_t watts        = HOMEKIT_CHARACTERISTIC_(CUSTOM_WATTS, 0, .callback=HOMEKIT_CHARACTERISTIC_CALLBACK(watts_callback));
 homekit_characteristic_t volts        = HOMEKIT_CHARACTERISTIC_(CUSTOM_VOLTS, 0, .callback=HOMEKIT_CHARACTERISTIC_CALLBACK(volts_callback));
 homekit_characteristic_t mamps        = HOMEKIT_CHARACTERISTIC_(CUSTOM_MAMPS, 0, .callback=HOMEKIT_CHARACTERISTIC_CALLBACK(mamps_callback));
-homekit_characteristic_t mWhs         = HOMEKIT_CHARACTERISTIC_(CUSTOM_mWh,   0                                                           );
 
 const int BUTTON_GPIO =  0;
 const int CF_GPIO     =  4;
@@ -234,12 +233,9 @@ void CF0_task(void *arg) {
             watts.value.float_value=(dataW.count>1)?((int)((1701140*(dataW.count-1))/((dataW.now-dataW.time[0])/10)))/10.0:0;
             homekit_characteristic_bounds_check(&watts);
             homekit_characteristic_notify(&watts,watts.value);
-            mWhs.value.int_value=(uint32_t)(dataW.total*0.473456);
-            homekit_characteristic_bounds_check(&mWhs);
-            homekit_characteristic_notify(&mWhs,mWhs.value);
             if (taken) printf("CF   taken:   "); else printf("CF   timeout: ");
             printf("c=%d, n=%u, t0=%u, t1=%u, t2=%u, t3=%u, t4=%u, t=%u",dataW.count,dataW.now,dataW.time[0],dataW.time[1],dataW.time[2],dataW.time[3],dataW.time[4],dataW.total);
-            printf(", avg=%u us, %.1fW\n",(dataW.count>1)?(dataW.now-dataW.time[0])/(dataW.count-1):0,watts.value.float_value);
+            printf(", avg=%u us, %.1fW, %umWh\n",(dataW.count>1)?(dataW.now-dataW.time[0])/(dataW.count-1):0,watts.value.float_value,(uint32_t)(dataW.total*0.473456));
             // prepare future results
             cf0_done=(cf0_done || 20*watts.value.float_value<old_value || BL0937_process(&dataW,taken));
             if (20*watts.value.float_value<old_value) cf1_done=true; //when connected device switches off, detect ASAP
@@ -324,7 +320,6 @@ homekit_accessory_t *accessories[] = {
                     &volts,
                     &watts,
                     &mamps,
-                    &mWhs,
                     &calibrate_pow,
                     &calibrate_volts,
                     &calibrate_power,
