@@ -111,3 +111,17 @@
 .min_step = (float[]) {1}, \
 .value = HOMEKIT_UINT16_(_value), \
 ##__VA_ARGS__
+
+
+#define HOMEKIT_CHARACTERISTIC_CUSTOM_mWh HOMEKIT_CUSTOM_UUID("F0000015")
+#define HOMEKIT_DECLARE_CHARACTERISTIC_CUSTOM_mWh(_value, ...) \
+.type = HOMEKIT_CHARACTERISTIC_CUSTOM_mWh, \
+.description = "mWh", \
+.format = homekit_format_uint32, \
+.permissions = homekit_permissions_paired_read \
+| homekit_permissions_notify, \
+.min_value = (float[]) {0}, \
+.max_value = (float[]) {4000000000}, \
+.min_step = (float[]) {1}, \
+.value = HOMEKIT_UINT32_(_value), \
+##__VA_ARGS__
