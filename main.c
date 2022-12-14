@@ -70,6 +70,7 @@ homekit_characteristic_t relay        = HOMEKIT_CHARACTERISTIC_(ON, false, .call
 homekit_characteristic_t watts        = HOMEKIT_CHARACTERISTIC_(CUSTOM_WATTS, 0, .callback=HOMEKIT_CHARACTERISTIC_CALLBACK(watts_callback));
 homekit_characteristic_t volts        = HOMEKIT_CHARACTERISTIC_(CUSTOM_VOLTS, 0, .callback=HOMEKIT_CHARACTERISTIC_CALLBACK(volts_callback));
 homekit_characteristic_t mamps        = HOMEKIT_CHARACTERISTIC_(CUSTOM_MAMPS, 0, .callback=HOMEKIT_CHARACTERISTIC_CALLBACK(mamps_callback));
+homekit_characteristic_t mWhs         = HOMEKIT_CHARACTERISTIC_(CUSTOM_mWh,   0                                                           );
 
 const int BUTTON_GPIO =  0;
 const int CF_GPIO     =  4;
@@ -151,8 +152,9 @@ void load_float_param( const char *description, float *new_float_value) {
 
 
 float calibrated_volts_multiplier=142000;
-float calibrated_current_multiplier=12772500;
-float calibrated_power_multiplier=1628400;
+float calibrated_current_multiplier=13413750;
+float calibrated_power_multiplier=1701140;
+float calibrated_energy_multiplier=0.473456;
 bool  cf0_done,cf1_done;
 
 
@@ -229,9 +231,12 @@ void CF0_task(void *arg) {
         while(!cf0_done) {
             taken=xSemaphoreTake(mySemaphore, 10000/portTICK_PERIOD_MS);
             // process current results, be aware that the count could be as high as 2500 so first part just under 2^32
-            watts.value.float_value=(dataW.count>1)?((int)((1628400*(dataW.count-1))/((dataW.now-dataW.time[0])/10)))/10.0:0;
+            watts.value.float_value=(dataW.count>1)?((int)((1701140*(dataW.count-1))/((dataW.now-dataW.time[0])/10)))/10.0:0;
             homekit_characteristic_bounds_check(&watts);
             homekit_characteristic_notify(&watts,watts.value);
+            mWhs.value.int_value=(uint32_t)(dataW.count*0.473456);
+            homekit_characteristic_bounds_check(&mWhs);
+            homekit_characteristic_notify(&mWhs,mWhs.value);
             if (taken) printf("CF   taken:   "); else printf("CF   timeout: ");
             printf("c=%d, n=%u, t0=%u, t1=%u, t2=%u, t3=%u, t4=%u, t=%u",dataW.count,dataW.now,dataW.time[0],dataW.time[1],dataW.time[2],dataW.time[3],dataW.time[4],dataW.total);
             printf(", avg=%u us, %.1fW\n",(dataW.count>1)?(dataW.now-dataW.time[0])/(dataW.count-1):0,watts.value.float_value);
@@ -273,7 +278,7 @@ void CF1_task(void *arg) {
         while(!cf1_done) {
             taken=xSemaphoreTake(mySemaphore, 10000/portTICK_PERIOD_MS);
             // process current results, be aware that the count could be as high as 3000 so first part just under 2^32
-            mamps.value.int_value=(dataA.count>1)?(int)(((12772500/10)*(dataA.count-1)/((dataA.now-dataA.time[0])/10))+0.5):0;
+            mamps.value.int_value=(dataA.count>1)?(int)(((13413750/10)*(dataA.count-1)/((dataA.now-dataA.time[0])/10))+0.5):0;
             homekit_characteristic_bounds_check(&mamps);
             homekit_characteristic_notify(&mamps,mamps.value);
             if (taken) printf("CF1A taken:   "); else printf("CF1A timeout: ");
@@ -319,6 +324,7 @@ homekit_accessory_t *accessories[] = {
                     &volts,
                     &watts,
                     &mamps,
+                    &mWhs,
                     &calibrate_pow,
                     &calibrate_volts,
                     &calibrate_power,
