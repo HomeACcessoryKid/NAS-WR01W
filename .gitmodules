@@ -13,6 +13,3 @@
 [submodule "esp-adv-button"]
 	path = esp-adv-button
 	url = https://github.com/HomeACcessoryKid/esp-adv-button
-[submodule "HLW8012_BL0937_ESP"]
-	path = HLW8012_BL0937_ESP
-	url = https://github.com/HomeACcessoryKid/HLW8012_BL0937_ESP

@@ -35,7 +35,6 @@
 
 #include <adv_button.h>
 #include <udplogger.h>
-#include <HLW8012_ESP82.h>
 #include <etstimer.h>
 #include <BL0937.h>
 
@@ -152,9 +151,9 @@ void load_float_param( const char *description, float *new_float_value) {
 
 
 float calibrated_volts_multiplier=142000;
-float calibrated_current_multiplier=13413750;
-float calibrated_power_multiplier=1701140;
-float calibrated_energy_multiplier=0.473456;
+float calibrated_current_multiplier=13118710;
+float calibrated_power_multiplier=1668220;
+float calibrated_energy_multiplier=0.460727;
 bool  cf0_done,cf1_done;
 
 
@@ -166,16 +165,12 @@ void relay_callback(homekit_characteristic_t *_ch, homekit_value_t on, void *con
 }
 void volts_callback(homekit_characteristic_t *_ch, homekit_value_t value, void *context) {
 //     printf("Volts on callback\n");
-/*    volts.value.int_value = HLW8012_getVoltage();*/
 }
 void mamps_callback(homekit_characteristic_t *_ch, homekit_value_t value, void *context) {
 //     printf("mAmps on callback\n");
-/*    mamps.value.int_value = HLW8012_getCurrent();*/
 }
 void watts_callback(homekit_characteristic_t *_ch, homekit_value_t value, void *context) {
 //     printf("Watts on callback\n");
-/*    watts.value.float_value = HLW8012_getActivePower();*/
-/*    watts.value.float_value = (float) (volts.value.int_value * mamps.value.int_value);*/
 }
 
 void save_characteristics() {
@@ -186,7 +181,7 @@ void save_characteristics() {
 }
 
 void calibrate_task() {
-    HLW8012_set_calibrated_mutipliers (&calibrated_current_multiplier, &calibrated_volts_multiplier, &calibrated_power_multiplier, calibrate_volts.value.int_value, calibrate_power.value.int_value) ;
+//     HLW8012_set_calibrated_mutipliers (&calibrated_current_multiplier, &calibrated_volts_multiplier, &calibrated_power_multiplier, calibrate_volts.value.int_value, calibrate_power.value.int_value) ;
     
     sdk_os_timer_arm (&save_timer, SAVE_DELAY, 0 );
     
@@ -231,10 +226,10 @@ void CF0_task(void *arg) {
         while(!cf0_done) {
             taken=xSemaphoreTake(mySemaphore, 10000/portTICK_PERIOD_MS);
             // process current results, be aware that the count could be as high as 2500 so first part just under 2^32
-            watts.value.float_value=(dataW.count>1)?((int)((1701140*(dataW.count-1))/((dataW.now-dataW.time[0])/10)))/10.0:0;
+            watts.value.float_value=(dataW.count>1)?((int)((1668220*(dataW.count-1))/((dataW.now-dataW.time[0])/10)))/10.0:0;
             homekit_characteristic_bounds_check(&watts);
             homekit_characteristic_notify(&watts,watts.value);
-            mWhs.value.int_value=(uint32_t)(dataW.total*0.473456);
+            mWhs.value.int_value=(uint32_t)(dataW.total*0.460727);
             homekit_characteristic_bounds_check(&mWhs);
             homekit_characteristic_notify(&mWhs,mWhs.value);
             if (taken) printf("CF   taken:   "); else printf("CF   timeout: ");
@@ -278,7 +273,7 @@ void CF1_task(void *arg) {
         while(!cf1_done) {
             taken=xSemaphoreTake(mySemaphore, 10000/portTICK_PERIOD_MS);
             // process current results, be aware that the count could be as high as 3000 so first part just under 2^32
-            mamps.value.int_value=(dataA.count>1)?(int)(((13413750/10)*(dataA.count-1)/((dataA.now-dataA.time[0])/10))+0.5):0;
+            mamps.value.int_value=(dataA.count>1)?(int)(((13118710/10)*(dataA.count-1)/((dataA.now-dataA.time[0])/10))+0.5):0;
             homekit_characteristic_bounds_check(&mamps);
             homekit_characteristic_notify(&mamps,mamps.value);
             if (taken) printf("CF1A taken:   "); else printf("CF1A timeout: ");
@@ -362,10 +357,6 @@ void device_init() {
     gpio_enable(relay_gpio, GPIO_OUTPUT);
     relay_write(relay.value.bool_value, relay_gpio);
 
-//     HLW8012_init(CF_GPIO, CF1_GPIO, SELi_GPIO, 0, 1); //NAS-WR01W uses a BL0937
-    // currentWhen  - 1 for HLW8012 (old Sonoff Pow), 0 for BL0937
-    // model - 0 for HLW8012, 1 or other value for BL0937
-    
     load_float_param ( "wattsx", &calibrated_power_multiplier);
     load_float_param ( "voltsx", &calibrated_volts_multiplier);
     load_float_param ( "currentx", &calibrated_current_multiplier);

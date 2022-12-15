@@ -1,22 +1,13 @@
 PROGRAM = main
 
 EXTRA_COMPONENTS = \
-	extras/dht \
 	extras/http-parser \
 	extras/rboot-ota \
-	extras/dhcpserver \
-	extras/sntp \
 	$(abspath esp-wolfssl) \
 	$(abspath esp-cjson) \
 	$(abspath esp-homekit) \
 	$(abspath UDPlogger) \
 	$(abspath esp-adv-button) \
-	$(abspath HLW8012_BL0937_ESP)
-
-#	$(abspath ../components/esp-homekit-common-functions/led_codes)\
-#	$(abspath ../components/esp-homekit-common-functions/ota)\
-#	$(abspath ../components/esp-homekit-common-functions/custom_characteristics)\
-#	$(abspath ../components/esp-homekit-common-functions/shared_functions)\
 
 FLASH_SIZE ?= 8
 #FLASH_MODE ?= dout
